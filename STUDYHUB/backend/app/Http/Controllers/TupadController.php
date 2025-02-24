@@ -7,6 +7,35 @@ use App\Models\Tupad;
 
 class TupadController extends Controller
 {
+
+    public function index()
+{
+    $tupads = Tupad::with('history')->get();
+
+    return response()->json($tupads->map(function ($tupad) {
+        return [
+            'id' => $tupad->id, // Ensure the real primary key is sent
+            'seriesNo' => $tupad->series_no, // Keep series number separate
+            'adlNo' => $tupad->adl_no,
+            'pfo' => $tupad->pfo,
+            'target' => $tupad->target,
+            'initial' => $tupad->initial,
+            'status' => $tupad->status,
+            'budget' => $tupad->budget,
+            'history' => $tupad->history->map(function ($history) {
+                return [
+                    'dateReceived' => $history->date_received,
+                    'duration' => $history->duration . ' months',
+                    'location' => $history->location,
+                    'budget' => $history->budget
+                ];
+            }),
+        ];
+    }));
+}
+
+
+
     public function store(Request $request)
     {
         $request->validate([

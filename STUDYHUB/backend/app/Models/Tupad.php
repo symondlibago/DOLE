@@ -21,5 +21,11 @@ class Tupad extends Model
         'location',
         'budget',
     ];
+
+    public function history()
+{
+    return $this->hasMany(TupadsPaper::class, 'tupad_id');
+}
+
 }
 

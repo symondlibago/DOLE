@@ -6,6 +6,7 @@ import {
   Box,
   TextField,
   Select,
+  Menu,
   MenuItem,
   Typography,
   FormControl,
@@ -21,15 +22,19 @@ import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
+import InputAdornment  from '@mui/material/InputAdornment';
 import Paper from '@mui/material/Paper';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import { IoIosAddCircleOutline } from "react-icons/io";
+import { MdOutlineFileDownload } from "react-icons/md";
+import { CiSearch } from "react-icons/ci";
 import API_URL from './api';
 
 const Tupad = () => {
   const [rows, setRows] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
+  const [statusOpen, setStatusOpen] = useState(false);
   const [newEntry, setNewEntry] = useState({
     pfo: '',
     seriesNo: '',
@@ -43,28 +48,112 @@ const Tupad = () => {
     budget: '',
   });
 
-  const [page, setPage] = useState(0); // Current page
-  const [rowsPerPage, setRowsPerPage] = useState(10); // Rows per page
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10); 
+  const [searchQuery, setSearchQuery] = useState("");
+  const [anchorEl, setAnchorEl] = useState(null);
+  const open = Boolean(anchorEl);
+  const [openRows, setOpenRows] = useState({});
+  const [dates, setDates] = useState({});
+  const [selectedTupadsId, setSelectedTupadsId] = useState(null);
+  const [statuses, setStatuses] = useState([]);
 
-  // Handle page change
+  const formatDateTime = (date) => {
+    if (!date) return ""; // Keep empty values empty
+    return `${date}T00:00`; // Append default time
+  };
+  
+
+  const handleDateChange = (status, value) => {
+    setDates((prev) => ({
+      ...prev,
+      [status]: value,
+    }));
+  };
+
+  const handleSave = async () => {
+    if (!selectedTupadsId) {
+        console.error("Error: selectedTupadsId is undefined or null");
+        return;
+    }
+
+    console.log("Sending Data:", {
+        tupad_id: selectedTupadsId,  // ✅ Ensure the key matches backend
+        budget: dates["Budget"] || null,
+        received_from_budget: dates["Received from Budget"] || null,
+        tssd_sir_jv: dates["TSSD/SIR JV"] || null,
+        received_from_tssd_sir_jv: dates["Received from TSSD/SIR JV"] || null,
+        rd: dates["RD"] || null,
+        received_from_rd: dates["Received from RD"] || null,
+    });
+
+    try {
+        const response = await axios.post(`http://localhost:8000/api/tupadspapers`, {
+            tupad_id: selectedTupadsId,
+            budget: dates["Budget"] || null,
+            received_from_budget: dates["Received from Budget"] || null,
+            tssd_sir_jv: dates["TSSD/SIR JV"] || null,
+            received_from_tssd_sir_jv: dates["Received from TSSD/SIR JV"] || null,
+            rd: dates["RD"] || null,
+            received_from_rd: dates["Received from RD"] || null,
+        });
+
+        console.log("Data saved:", response.data);
+        setStatusOpen(false);
+    } catch (error) {
+        console.error("Error saving data:", error.response?.data || error.message);
+    }
+};
+
+
+  
+  
+  
+
+
+
+  const filteredRows = rows.filter(row =>
+    row.seriesNo.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    row.adlNo.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    row.pfo.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    row.history.some(historyRow => 
+    historyRow.dateReceived.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+  );
+  const handleClick = (event) => {
+    setAnchorEl(event.currentTarget);
+  };
+  
+  const handleClose = () => {
+    setAnchorEl(null);
+  };
+ 
   const handleChangePage = (event, newPage) => {
     setPage(newPage);
   };
 
-  // Handle rows per page change
   const handleChangeRowsPerPage = (event) => {
     setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0); // Reset to the first page
+    setPage(0); 
   };
 
-  // Calculate the rows to display on the current page
-  const paginatedRows = rows.slice(
-    page * rowsPerPage,
-    page * rowsPerPage + rowsPerPage
-  );
-
-  const PFO_OPTIONS = ['CDO', 'BUKIDNON', 'TSSD', 'MISOR', 'MISOC', 'LDN', 'CAMIGUIN'];
+  const handlePrint = () => {
+    setOpenRows(prevState => {
+      const allRows = {}; 
+      rows.forEach((_, index) => {
+        allRows[index] = true; 
+      });
+      return allRows;
+    });
   
+    setTimeout(() => {
+      window.print();
+    }, 500); 
+  };
+
+  
+  const paginatedRows = filteredRows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+  const PFO_OPTIONS = ['CDO', 'BUKIDNON', 'TSSD', 'MISOR', 'MISOC', 'LDN', 'CAMIGUIN'];
 
   useEffect(() => {
     const fetchTupadData = async () => {
@@ -72,7 +161,8 @@ const Tupad = () => {
         const response = await axios.get(`${API_URL}/api/tupads`); 
         const data = response.data.data;
 
-        const formattedData = data.map((item) => ({
+        const formattedData = data.map((item, index) => ({
+          id: item.id || index, // Ensure each row has a unique ID
           seriesNo: item.series_no,
           adlNo: item.adl_no,
           pfo: item.pfo,
@@ -89,6 +179,7 @@ const Tupad = () => {
             },
           ],
         }));
+        
         setRows(formattedData);
       } catch (error) {
         console.error('Error fetching Tupad data:', error);
@@ -98,6 +189,43 @@ const Tupad = () => {
     fetchTupadData();
   }, []);
 
+  const handleExport = () => {
+    const headers = ["Series No", "ADL No", "PFO", "No. Target", "Initial", "Status", "Date Received", "Duration", "Location", "Budget"];
+    const csvRows = [];
+  
+    csvRows.push(headers.join(","));
+  
+    paginatedRows.forEach(row => {
+      // Check if history exists and has at least one entry
+      const history = Array.isArray(row.history) && row.history.length > 0 ? row.history[0] : {};
+  
+      const rowData = [
+        row.seriesNo,
+        row.adlNo,
+        row.pfo,
+        row.target,
+        row.initial,
+        row.status,
+        history.dateReceived || 'N/A',  // Extract from history
+        history.duration || 'N/A',  // Extract from history
+        history.location || 'N/A',  // Extract from history
+        history.budget || '0',  // Extract from history
+      ];
+      csvRows.push(rowData.join(","));
+    });
+  
+    // Create a Blob with CSV data
+    const blob = new Blob([csvRows.join("\n")], { type: "text/csv" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "tupad_data.csv";
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+  
+
+  
   const handleInputChange = async (field, value) => {
     setNewEntry((prev) => ({
       ...prev,
@@ -119,8 +247,6 @@ const Tupad = () => {
       }
     }
   };
-  
-
   
 
   const handleAddNewEntry = () => {
@@ -189,8 +315,6 @@ const Tupad = () => {
   };
   
   
-  
-
   function Row(props) {
     const { row } = props;
     const [open, setOpen] = useState(false);
@@ -206,17 +330,19 @@ const Tupad = () => {
       }
     };
 
+    
+
     return (
       <>
+      
         <TableRow sx={{ '& > *': { borderBottom: 'unset' } }}>
           <TableCell>
             <IconButton aria-label="expand row" size="small" onClick={() => setOpen(!open)}>
               {open ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
             </IconButton>
           </TableCell>
-          <TableCell component="th" scope="row">
-            {row.seriesNo}
-          </TableCell>
+          <TableCell component="th" scope="row">{row.id}</TableCell>
+          <TableCell component="th" scope="row">{row.seriesNo}</TableCell>
           <TableCell align="center">{row.adlNo}</TableCell>
           <TableCell align="center">{row.pfo}</TableCell>
           <TableCell align="center">{row.target}</TableCell>
@@ -227,7 +353,7 @@ const Tupad = () => {
         </TableRow>
         <TableRow>
           <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={7}>
-            <Collapse in={open} timeout="auto" unmountOnExit>
+            <Collapse in={open} timeout="auto" className="tupad-collapse">
               <Box sx={{ margin: 1 }}>
                 <Typography variant="h6" gutterBottom component="div">
                   Additional Details
@@ -237,32 +363,74 @@ const Tupad = () => {
                     <TableRow>
                       <TableCell style={{ fontWeight: 'bold' }}>Date Received</TableCell>
                       <TableCell style={{ fontWeight: 'bold' }}>Duration</TableCell>
-                      <TableCell align="center" style={{ fontWeight: 'bold' }}>
-                        Location
-                      </TableCell>
-                      <TableCell align="center" style={{ fontWeight: 'bold' }}>
-                        Budget (₱)
-                      </TableCell>
+                      <TableCell align="center" style={{ fontWeight: 'bold' }}>Location</TableCell>
+                      <TableCell align="center" style={{ fontWeight: 'bold' }}>Budget (₱)</TableCell>
+                      <TableCell align="center" style={{ fontWeight: 'bold' }}>Status History</TableCell>
+                      
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                {(Array.isArray(row.history) ? row.history : []).map((historyRow, index) => (
-                  <TableRow key={index}>
-                    <TableCell component="th" scope="row">
-                      {historyRow.dateReceived}
-                    </TableCell>
-                    <TableCell>{historyRow.duration}</TableCell>
-                    <TableCell align="center">{historyRow.location}</TableCell>
-                    <TableCell align="center">{historyRow.budget}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
+                    {(Array.isArray(row.history) ? row.history : []).map((historyRow, index) => (
+                      <TableRow key={index}>
+                        <TableCell>{historyRow.dateReceived}</TableCell>
+                        <TableCell>{historyRow.duration}</TableCell>
+                        <TableCell align="center">{historyRow.location}</TableCell>
+                        <TableCell align="center">{historyRow.budget}</TableCell>
+                        <TableCell align="center">
+                        <Typography
+  variant="body2"
+  sx={{
+    textDecoration: "underline",
+    color: "blue",
+    cursor: "pointer",
+  }}
+  onClick={async () => {
+    console.log("Row ID:", row.id);
+
+    if (row.id) {
+      try {
+        const response = await fetch(`http://localhost:8000/api/tupads-papers/${row.id}`);
+        if (!response.ok) {
+          throw new Error("Failed to fetch data");
+        }
+        const data = await response.json();
+        console.log("Fetched Data:", data);
+
+        setSelectedTupadsId(row.id);
+        setStatuses([
+  { name: "Budget", date: formatDateTime(data.budget) },
+  { name: "Received from Budget", date: formatDateTime(data.received_from_budget) },
+  { name: "TSSD Sir JV", date: formatDateTime(data.tssd_sir_jv) },
+  { name: "Received from TSSD Sir JV", date: formatDateTime(data.received_from_tssd_sir_jv) },
+  { name: "RD", date: formatDateTime(data.rd) },
+  { name: "Received from RD", date: formatDateTime(data.received_from_rd) },
+]);
+console.log("Updated Statuses:", statuses);
+
+
+        setStatusOpen(true);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      }
+    } else {
+      console.error("ID is undefined for this row");
+    }
+  }}
+>
+  View Details
+</Typography>
+
+                      </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
                 </Table>
               </Box>
             </Collapse>
           </TableCell>
         </TableRow>
       </>
+      
     );
   }
 
@@ -289,8 +457,7 @@ const Tupad = () => {
     <div className="tupad-container">
 
     {/* MODAL */}
-
-<Modal open={modalOpen} onClose={() => setModalOpen(false)}>
+    <Modal open={modalOpen} onClose={() => setModalOpen(false)}>
         <Box
           sx={{
             position: 'absolute',
@@ -305,7 +472,7 @@ const Tupad = () => {
           }}
         >
           <Typography variant="h6" gutterBottom>
-            Insert New WP
+            Insert New WPsadasd
           </Typography>
           <Box
             sx={{
@@ -412,58 +579,209 @@ const Tupad = () => {
         </Box>
       </Modal>
 
-      <h1>Tupad</h1>
-  <Box sx={{ alignSelf: "flex-start", display: "flex", flexDirection: "column", marginLeft: "0.9rem"}}>
-    <Button
-      variant="contained"
-      startIcon={<IoIosAddCircleOutline />}
-      onClick={() => setModalOpen(true)}
-    >
-      Insert New WP
-    </Button>
-  </Box>
 
-  <TableContainer component={Paper} className="tupad-table">
-    <Table aria-label="collapsible table">
-      <TableHead
-        align="center"
+      {/* STATUS MODAL */}
+
+      <Modal open={statusOpen} onClose={() => setStatusOpen(false)} tupadsId={selectedTupadsId}>
+      <Box
         sx={{
-          position: "sticky",
-          top: 0,
-          zIndex: 1000,
-          backgroundColor: "#003366",
+          position: "absolute",
+          top: "50%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          width: 900,
+          bgcolor: "background.paper",
+          boxShadow: 24,
+          p: 4,
+          borderRadius: 2,
         }}
       >
-        <TableRow>
-          <TableCell sx={{ fontWeight: "bold", color: "white" }} />
-          <TableCell sx={{ fontWeight: "bold", color: "white" }}>Series No</TableCell>
-          <TableCell align="center" sx={{ fontWeight: "bold", color: "white" }}>ADL No</TableCell>
-          <TableCell align="center" sx={{ fontWeight: "bold", color: "white" }}>PFO</TableCell>
-          <TableCell align="center" sx={{ fontWeight: "bold", color: "white" }}>No. Target</TableCell>
-          <TableCell align="center" sx={{ fontWeight: "bold", color: "white" }}>Initial</TableCell>
-          <TableCell align="center" sx={{ fontWeight: "bold", color: "white" }}>Status</TableCell>
-        </TableRow>
-      </TableHead>
-      <TableBody>
-        {paginatedRows.map((row) => (
-          <Row key={row.seriesNo} row={row} />
-        ))}
-      </TableBody>
-    </Table>
-  </TableContainer>
+        <Typography variant="h6" sx={{ mb: 2 }}>
+          Paper Status
+        </Typography>
+        <TableContainer component={Paper}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell><strong>Paper Status</strong></TableCell>
+                <TableCell><strong>Date Received</strong></TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+  {statuses.length > 0 ? (
+    statuses.map((status, index) => (
+      <TableRow key={index}>
+        <TableCell>{status.name || "No Name"}</TableCell>
+        <TableCell>
+          <TextField
+            type="datetime-local"
+            variant="outlined"
+            size="small"
+            fullWidth
+            value={status.date || ""}
+            onChange={(e) => handleDateChange(status.name, e.target.value)}
+          />
+        </TableCell>
+      </TableRow>
+    ))
+  ) : (
+    <TableRow>
+      <TableCell colSpan={2} align="center">
+        No data available
+      </TableCell>
+    </TableRow>
+  )}
+</TableBody>
 
-  <TablePagination
-    component="div"
-    count={rows.length}
-    page={page}
-    onPageChange={handleChangePage}
-    rowsPerPage={rowsPerPage}
-    onRowsPerPageChange={handleChangeRowsPerPage}
-    rowsPerPageOptions={[5, 10, 20]}
-  />
+          </Table>
+        </TableContainer>
+        
+        {/* Save Button */}
+        <Button
+          onClick={handleSave}
+          sx={{ mt: 2, display: "block", marginLeft: "auto" }}
+          variant="contained"
+          color="primary"
+        >
+          Save
+        </Button>
 
-    </div>
-  );
+        {/* Close Button */}
+        <Button
+          onClick={() => setStatusOpen(false)}
+          sx={{ mt: 1, display: "block", marginLeft: "auto" }}
+          variant="outlined"
+          color="secondary"
+        >
+          Close
+        </Button>
+      </Box>
+    </Modal>
+
+    <h1>Tupad</h1>
+
+    <Box 
+      sx={{ 
+        display: "flex", 
+        justifyContent: "space-between", 
+        alignItems: "center", 
+        width: "98%"
+      }}
+    >
+      <Button
+        variant="contained"
+        startIcon={<IoIosAddCircleOutline />}
+        onClick={() => setModalOpen(true)}
+        sx={{ 
+          width: "280px",  
+          height: "50px",  
+          fontSize: "1rem",  
+          backgroundColor: "#003366", 
+          color: "white", 
+          "&:hover": { backgroundColor: "#002244" } 
+        }}
+      >
+        Insert New WP
+      </Button>
+
+      <TextField
+        variant="outlined"
+        placeholder="Search Series No, ADL No, PFO, Date Received"
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        sx={{ 
+          width: "320px",  
+          height: "50px",  
+          backgroundColor: "white", 
+          borderRadius: "5px",
+          "& .MuiInputBase-input": {
+            fontSize: "0.85rem" 
+          }
+        }}
+        InputProps={{
+          startAdornment: (
+            <InputAdornment position="start">
+              <CiSearch size={18} />
+            </InputAdornment>
+          ),
+        }}
+      />
+    </Box>
+
+    <TableContainer component={Paper} className="tupad-table">
+      <Table aria-label="collapsible table">
+        <TableHead 
+          align="center"
+          sx={{
+            position: "sticky",
+            top: 0,
+            zIndex: 1000,
+            backgroundColor: "#003366",
+          }} className="tupad-table-head"
+        >
+          <TableRow>
+            <TableCell sx={{ fontWeight: "bold", color: "white" }} />
+            <TableCell sx={{ fontWeight: "bold", color: "white" }}>ID</TableCell>
+            <TableCell sx={{ fontWeight: "bold", color: "white" }}>Series No</TableCell>
+            <TableCell align="center" sx={{ fontWeight: "bold", color: "white" }}>ADL No</TableCell>
+            <TableCell align="center" sx={{ fontWeight: "bold", color: "white" }}>PFO</TableCell>
+            <TableCell align="center" sx={{ fontWeight: "bold", color: "white" }}>No. Target</TableCell>
+            <TableCell align="center" sx={{ fontWeight: "bold", color: "white" }}>Initial</TableCell>
+            <TableCell align="center" sx={{ fontWeight: "bold", color: "white" }}>Status</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {paginatedRows.map((row) => (
+            <Row key={row.seriesNo} row={row} />
+          ))}
+        </TableBody>
+      </Table>
+    </TableContainer>
+
+    {/* Pagination and Export Buttons */}
+    <Box 
+      sx={{ 
+        display: "flex", 
+        justifyContent: "space-between", 
+        alignItems: "center",
+        width: "100%", 
+        marginTop: "10px"
+      }}
+    >
+      {/* Pagination Component */}
+      <TablePagination
+        component="div"
+        count={rows.length}
+        page={page}
+        onPageChange={handleChangePage}
+        rowsPerPage={rowsPerPage}
+        onRowsPerPageChange={handleChangeRowsPerPage}
+        rowsPerPageOptions={[5, 10, 20, 50, 100]}
+      />
+
+    </Box>
+    <Box sx={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
+    {/* Export Button */}
+    <Button
+      variant="contained"
+      onClick={handleClick}
+      startIcon={<MdOutlineFileDownload />}
+      sx={{ backgroundColor: "#003366", color: "white", "&:hover": { backgroundColor: "#002244" } }}
+    >
+      Export
+    </Button>
+
+    {/* Dropdown Menu */}
+    <Menu anchorEl={anchorEl} open={open} onClose={handleClose}>
+      <MenuItem onClick={() => { handleExport(); handleClose(); }}>Download CSV</MenuItem>
+      <MenuItem onClick={() => { handlePrint(); handleClose(); }}>Print</MenuItem>
+    </Menu>
+  </Box>
+
+
+  </div>
+);
+
 };
 
 export default Tupad;
