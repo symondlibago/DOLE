@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration {
     public function up()
     {
-        Schema::create('tupads_papers', function (Blueprint $table) {
+        Schema::create('tupad_papers', function (Blueprint $table) {
             $table->id();
             $table->foreignId('tupad_id')->constrained('tupads')->onDelete('cascade'); // Foreign key fix
             $table->date('budget')->nullable(); // Changed from dateTime to date
@@ -22,7 +22,6 @@ return new class extends Migration {
 
     public function down()
     {
-        Schema::dropIfExists('tupadspapers');
+        Schema::dropIfExists('tupad_papers');
     }
 };
-

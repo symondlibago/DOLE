@@ -54,62 +54,54 @@ const Tupad = () => {
   const [anchorEl, setAnchorEl] = useState(null);
   const open = Boolean(anchorEl);
   const [openRows, setOpenRows] = useState({});
-  const [dates, setDates] = useState({});
   const [selectedTupadsId, setSelectedTupadsId] = useState(null);
   const [statuses, setStatuses] = useState([]);
 
-  const formatDateTime = (date) => {
-    if (!date) return ""; // Keep empty values empty
-    return `${date}T00:00`; // Append default time
+  const formatDateTime = (dateString) => {
+    return dateString ? new Date(dateString).toISOString().slice(0, 16) : "mm/dd/yyyy";
   };
   
+  
 
-  const handleDateChange = (status, value) => {
-    setDates((prev) => ({
-      ...prev,
-      [status]: value,
-    }));
+  const handleDateChange = (name, newDate) => {
+    setStatuses((prevStatuses) =>
+      prevStatuses.map((status) =>
+        status.name === name ? { ...status, date: newDate } : status
+      )
+    );
   };
 
+
+  const formatDate = (date) => {
+    return date && date !== "mm/dd/yyyy" ? date : null;
+  };
+  
   const handleSave = async () => {
-    if (!selectedTupadsId) {
-        console.error("Error: selectedTupadsId is undefined or null");
-        return;
-    }
-
-    console.log("Sending Data:", {
-        tupad_id: selectedTupadsId,  // ✅ Ensure the key matches backend
-        budget: dates["Budget"] || null,
-        received_from_budget: dates["Received from Budget"] || null,
-        tssd_sir_jv: dates["TSSD/SIR JV"] || null,
-        received_from_tssd_sir_jv: dates["Received from TSSD/SIR JV"] || null,
-        rd: dates["RD"] || null,
-        received_from_rd: dates["Received from RD"] || null,
-    });
-
     try {
-        const response = await axios.post(`http://localhost:8000/api/tupadspapers`, {
+        const payload = {
             tupad_id: selectedTupadsId,
-            budget: dates["Budget"] || null,
-            received_from_budget: dates["Received from Budget"] || null,
-            tssd_sir_jv: dates["TSSD/SIR JV"] || null,
-            received_from_tssd_sir_jv: dates["Received from TSSD/SIR JV"] || null,
-            rd: dates["RD"] || null,
-            received_from_rd: dates["Received from RD"] || null,
-        });
+            budget: formatDate(statuses.find(s => s.name === "Budget")?.date),
+            received_from_budget: formatDate(statuses.find(s => s.name === "Received from Budget")?.date),
+            tssd_sir_jv: formatDate(statuses.find(s => s.name === "TSSD Sir JV")?.date),
+            received_from_tssd_sir_jv: formatDate(statuses.find(s => s.name === "Received from TSSD Sir JV")?.date),
+            rd: formatDate(statuses.find(s => s.name === "RD")?.date),
+            received_from_rd: formatDate(statuses.find(s => s.name === "Received from RD")?.date),
+        };
 
-        console.log("Data saved:", response.data);
+        console.log("Sending Payload:", payload);
+
+        const response = await axios.post("http://localhost:8000/api/tupad_papers", payload);
+
+        console.log(response.data.message, response.data.data);
+
         setStatusOpen(false);
     } catch (error) {
         console.error("Error saving data:", error.response?.data || error.message);
     }
 };
 
-
   
   
-  
-
 
 
   const filteredRows = rows.filter(row =>
@@ -313,6 +305,7 @@ const Tupad = () => {
         alert(`Error: ${error.response?.data?.message || 'An error occurred while creating the entry.'}`);
       });
   };
+
   
   
   function Row(props) {
@@ -341,7 +334,6 @@ const Tupad = () => {
               {open ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
             </IconButton>
           </TableCell>
-          <TableCell component="th" scope="row">{row.id}</TableCell>
           <TableCell component="th" scope="row">{row.seriesNo}</TableCell>
           <TableCell align="center">{row.adlNo}</TableCell>
           <TableCell align="center">{row.pfo}</TableCell>
@@ -387,38 +379,51 @@ const Tupad = () => {
   onClick={async () => {
     console.log("Row ID:", row.id);
 
-    if (row.id) {
-      try {
-        const response = await fetch(`http://localhost:8000/api/tupads-papers/${row.id}`);
-        if (!response.ok) {
-          throw new Error("Failed to fetch data");
-        }
-        const data = await response.json();
-        console.log("Fetched Data:", data);
-
-        setSelectedTupadsId(row.id);
-        setStatuses([
-  { name: "Budget", date: formatDateTime(data.budget) },
-  { name: "Received from Budget", date: formatDateTime(data.received_from_budget) },
-  { name: "TSSD Sir JV", date: formatDateTime(data.tssd_sir_jv) },
-  { name: "Received from TSSD Sir JV", date: formatDateTime(data.received_from_tssd_sir_jv) },
-  { name: "RD", date: formatDateTime(data.rd) },
-  { name: "Received from RD", date: formatDateTime(data.received_from_rd) },
-]);
-console.log("Updated Statuses:", statuses);
-
-
-        setStatusOpen(true);
-      } catch (error) {
-        console.error("Error fetching data:", error);
-      }
-    } else {
+    if (!row.id) {
       console.error("ID is undefined for this row");
+      return;
+    }
+
+    try {
+      const response = await fetch(`http://localhost:8000/api/tupads_papers/${row.id}`);
+      const data = response.ok ? await response.json() : {};  // Ensure it's always an object
+      console.log("Fetched Data:", data);
+
+      setSelectedTupadsId(row.id);
+
+      const updatedStatuses = [
+        { name: "Budget", date: formatDateTime(data.budget) },
+        { name: "Received from Budget", date: formatDateTime(data.received_from_budget) },
+        { name: "TSSD Sir JV", date: formatDateTime(data.tssd_sir_jv) },
+        { name: "Received from TSSD Sir JV", date: formatDateTime(data.received_from_tssd_sir_jv) },
+        { name: "RD", date: formatDateTime(data.rd) },
+        { name: "Received from RD", date: formatDateTime(data.received_from_rd) },
+      ];
+
+      setStatuses(updatedStatuses);
+      console.log("Updated Statuses:", updatedStatuses);
+
+      setStatusOpen(true);
+    } catch (error) {
+      console.error("Error fetching data:", error);
+      
+      setStatuses([
+        { name: "Budget", date: "" },
+        { name: "Received from Budget", date: "" },
+        { name: "TSSD Sir JV", date: "" },
+        { name: "Received from TSSD Sir JV", date: "" },
+        { name: "RD", date: "" },
+        { name: "Received from RD", date: "" },
+      ]);
+
+      setStatusOpen(true);
     }
   }}
 >
   View Details
 </Typography>
+
+
 
                       </TableCell>
                       </TableRow>
@@ -582,7 +587,7 @@ console.log("Updated Statuses:", statuses);
 
       {/* STATUS MODAL */}
 
-      <Modal open={statusOpen} onClose={() => setStatusOpen(false)} tupadsId={selectedTupadsId}>
+      <Modal open={statusOpen} onClose={() => setStatusOpen(false)} >
       <Box
         sx={{
           position: "absolute",
@@ -613,14 +618,16 @@ console.log("Updated Statuses:", statuses);
       <TableRow key={index}>
         <TableCell>{status.name || "No Name"}</TableCell>
         <TableCell>
-          <TextField
-            type="datetime-local"
-            variant="outlined"
-            size="small"
-            fullWidth
-            value={status.date || ""}
-            onChange={(e) => handleDateChange(status.name, e.target.value)}
-          />
+        <TextField
+  type="datetime-local"
+  variant="outlined"
+  size="small"
+  fullWidth
+  value={status.date || ""}
+  onChange={(e) => handleDateChange(status.name, e.target.value)}
+
+/>
+
         </TableCell>
       </TableRow>
     ))
@@ -636,15 +643,14 @@ console.log("Updated Statuses:", statuses);
           </Table>
         </TableContainer>
         
-        {/* Save Button */}
         <Button
-          onClick={handleSave}
-          sx={{ mt: 2, display: "block", marginLeft: "auto" }}
-          variant="contained"
-          color="primary"
-        >
-          Save
-        </Button>
+      sx={{ mt: 2, display: "block", marginLeft: "auto" }}
+      variant="contained"
+      color="primary"
+      onClick={handleSave}
+    >
+      Save
+    </Button>
 
         {/* Close Button */}
         <Button
@@ -721,7 +727,6 @@ console.log("Updated Statuses:", statuses);
         >
           <TableRow>
             <TableCell sx={{ fontWeight: "bold", color: "white" }} />
-            <TableCell sx={{ fontWeight: "bold", color: "white" }}>ID</TableCell>
             <TableCell sx={{ fontWeight: "bold", color: "white" }}>Series No</TableCell>
             <TableCell align="center" sx={{ fontWeight: "bold", color: "white" }}>ADL No</TableCell>
             <TableCell align="center" sx={{ fontWeight: "bold", color: "white" }}>PFO</TableCell>
