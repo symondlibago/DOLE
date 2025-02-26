@@ -377,52 +377,40 @@ const Tupad = () => {
     cursor: "pointer",
   }}
   onClick={async () => {
-    console.log("Row ID:", row.id);
+    console.log("Row Data:", row);
+    console.log("Tupad ID:", row.id); // Use row.id since it's the actual Tupad ID
 
     if (!row.id) {
-      console.error("ID is undefined for this row");
+      console.error("Tupad ID is undefined for this row");
       return;
     }
 
     try {
-      const response = await fetch(`http://localhost:8000/api/tupads_papers/${row.id}`);
-      const data = response.ok ? await response.json() : {};  // Ensure it's always an object
+      const response = await fetch(`http://localhost:8000/api/tupads_papers/tupad/${row.id}`);
+      const data = response.ok ? await response.json() : {}; 
       console.log("Fetched Data:", data);
 
-      setSelectedTupadsId(row.id);
-
-      const updatedStatuses = [
-        { name: "Budget", date: formatDateTime(data.budget) },
-        { name: "Received from Budget", date: formatDateTime(data.received_from_budget) },
-        { name: "TSSD Sir JV", date: formatDateTime(data.tssd_sir_jv) },
-        { name: "Received from TSSD Sir JV", date: formatDateTime(data.received_from_tssd_sir_jv) },
-        { name: "RD", date: formatDateTime(data.rd) },
-        { name: "Received from RD", date: formatDateTime(data.received_from_rd) },
-      ];
-
-      setStatuses(updatedStatuses);
-      console.log("Updated Statuses:", updatedStatuses);
-
-      setStatusOpen(true);
-    } catch (error) {
-      console.error("Error fetching data:", error);
-      
+      // Set statuses, even if data is empty
       setStatuses([
-        { name: "Budget", date: "" },
-        { name: "Received from Budget", date: "" },
-        { name: "TSSD Sir JV", date: "" },
-        { name: "Received from TSSD Sir JV", date: "" },
-        { name: "RD", date: "" },
-        { name: "Received from RD", date: "" },
+        { name: "Budget", date: formatDateTime(data.budget) || "" },
+        { name: "Received from Budget", date: formatDateTime(data.received_from_budget) || "" },
+        { name: "TSSD Sir JV", date: formatDateTime(data.tssd_sir_jv) || "" },
+        { name: "Received from TSSD Sir JV", date: formatDateTime(data.received_from_tssd_sir_jv) || "" },
+        { name: "RD", date: formatDateTime(data.rd) || "" },
+        { name: "Received from RD", date: formatDateTime(data.received_from_rd) || "" },
       ]);
 
-      setStatusOpen(true);
+      setSelectedTupadsId(row.id); // Use the correct Tupad ID
+      setStatusOpen(true); // Ensure modal opens
+
+    } catch (error) {
+      console.error("Error fetching data:", error);
+      setStatusOpen(true); // Open modal even if fetch fails
     }
   }}
 >
   View Details
 </Typography>
-
 
 
                       </TableCell>

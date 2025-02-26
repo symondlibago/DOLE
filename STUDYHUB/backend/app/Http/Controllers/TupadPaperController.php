@@ -43,21 +43,34 @@ class TupadPaperController extends Controller
 
     public function show($id)
 {
-    // Find by ID first
     $paper = TupadPaper::find($id);
 
-    // If not found, try finding by the same tupad_id
-    if (!$paper) {
-        $paper = TupadPaper::where('tupad_id', $id)->first();
+    if ($paper && $paper->tupad_id) {
+        $correctPaper = TupadPaper::where('tupad_id', $paper->tupad_id)->first();
+
+        if ($correctPaper) {
+            return response()->json($correctPaper, 200);
+        }
     }
 
-    // If still not found, return error
+    return response()->json(['message' => 'Paper not found for the selected row'], 404);
+}
+
+public function showByTupadId($tupad_id)
+{
+    // Find by `tupad_id`
+    $paper = TupadPaper::where('tupad_id', $tupad_id)->first();
+
+    // If not found, return an error
     if (!$paper) {
-        return response()->json(['message' => 'Paper not found'], 404);
+        return response()->json(['message' => 'Paper not found for the given Tupad ID'], 404);
     }
 
     return response()->json($paper, 200);
 }
+
+
+    
 
 
 

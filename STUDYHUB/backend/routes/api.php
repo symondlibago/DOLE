@@ -9,6 +9,7 @@ Route::get('/tupads_papers/{id}', [TupadPaperController::class, 'show']);
 
 Route::get('/tupads_papers/tupad/{tupad_id}', [TupadPaperController::class, 'showByTupadId']);
 
+
 Route::post('/tupads', [TupadController::class, 'store']);
 Route::get('/tupads', [TupadController::class, 'getAll']);
 Route::get('/tupads/latest-series/{pfo}', [TupadController::class, 'getLatestSeriesNo']);
