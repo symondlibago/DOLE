@@ -56,11 +56,11 @@ const Tupad = () => {
   const [openRows, setOpenRows] = useState({});
   const [selectedTupadsId, setSelectedTupadsId] = useState(null);
   const [statuses, setStatuses] = useState([]);
-
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [selectedRow, setSelectedRow] = useState(null);
   const formatDateTime = (dateString) => {
     return dateString ? new Date(dateString).toISOString().slice(0, 16) : "mm/dd/yyyy";
   };
-  
   
 
   const handleDateChange = (name, newDate) => {
@@ -104,14 +104,17 @@ const Tupad = () => {
   
 
 
-  const filteredRows = rows.filter(row =>
-    row.seriesNo.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    row.adlNo.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    row.pfo.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    row.history.some(historyRow => 
+const filteredRows = rows.filter(row =>
+  row.seriesNo.toLowerCase().includes(searchQuery.toLowerCase()) ||
+  (Array.isArray(row.adlNo) && row.adlNo.some(adl => 
+    String(adl).toLowerCase().includes(searchQuery.toLowerCase())
+  )) || // Check each ADL number in the array
+  row.pfo.toLowerCase().includes(searchQuery.toLowerCase()) ||
+  row.history.some(historyRow => 
     historyRow.dateReceived.toLowerCase().includes(searchQuery.toLowerCase())
-    )
-  );
+  )
+);
+
   const handleClick = (event) => {
     setAnchorEl(event.currentTarget);
   };
@@ -240,17 +243,21 @@ const Tupad = () => {
     }
   };
   
+  const [adlNumbers, setAdlNumbers] = useState(['']);
+
 
   const handleAddNewEntry = () => {
     const formattedSeriesNo = newEntry.pfo
       ? `TUPAD${newEntry.pfo}-${new Date().getFullYear()}-${newEntry.seriesNo}`
       : '';
-      const formattedAdlNo = `ADL-${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${newEntry.adlNo}`;
+    
+    const formattedAdlNos = adlNumbers.map(
+      (adl) => `ADL-${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${adl}`
+    );
 
-  
     const payload = {
       series_no: formattedSeriesNo,
-      adl_no: formattedAdlNo,
+      adl_no: formattedAdlNos, // Send array of ADL numbers
       pfo: newEntry.pfo,
       target: parseInt(newEntry.target, 10),
       initial: parseFloat(newEntry.initial),
@@ -306,6 +313,43 @@ const Tupad = () => {
       });
   };
 
+  const [selectedEntry, setSelectedEntry] = useState(null);
+
+
+  const handleEdit = (rowData) => {
+    console.log("Editing row:", rowData); // Debugging: Check if data is received
+    setSelectedRow(rowData); // Set selected row data
+    setSelectedEntry(rowData); // Set selected entry data
+    setEditModalOpen(true); // Open modal
+  };
+  
+  
+  
+  const handleSaveChanges = async () => {
+    if (!selectedRow) return;
+  
+    try {
+      const response = await fetch(`http://localhost:8000/api/tupad/${selectedRow.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(selectedRow),
+      });
+  
+      if (response.ok) {
+        const updatedData = await response.json();
+        console.log("Updated successfully:", updatedData);
+        setEditModalOpen(false); // Close modal after saving
+      } else {
+        console.error("Failed to update record.");
+      }
+    } catch (error) {
+      console.error("Error updating record:", error);
+    }
+  };
+  
+
   
   
   function Row(props) {
@@ -326,23 +370,35 @@ const Tupad = () => {
     
 
     return (
-      <>
-      
-        <TableRow sx={{ '& > *': { borderBottom: 'unset' } }}>
+      <>    
+       <TableRow sx={{ '& > *': { borderBottom: 'unset' } }}>
           <TableCell>
             <IconButton aria-label="expand row" size="small" onClick={() => setOpen(!open)}>
               {open ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
             </IconButton>
           </TableCell>
           <TableCell component="th" scope="row">{row.seriesNo}</TableCell>
-          <TableCell align="center">{row.adlNo}</TableCell>
+          <TableCell align="center">
+            {Array.isArray(row.adlNo) ? row.adlNo.join(" | ") : row.adlNo}
+          </TableCell>
           <TableCell align="center">{row.pfo}</TableCell>
           <TableCell align="center">{row.target}</TableCell>
           <TableCell align="center">{row.initial}</TableCell>
           <TableCell align="center" sx={{ fontWeight: 'bold', color: getStatusColor(row.status) }}>
             {row.status}
           </TableCell>
+          <TableCell align="center">
+            <Button
+              variant="contained"
+              color="primary"
+              size="small"
+              onClick={() => handleEdit(row)}
+            >
+              Edit
+            </Button>
+          </TableCell>
         </TableRow>
+
         <TableRow>
           <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={7}>
             <Collapse in={open} timeout="auto" className="tupad-collapse">
@@ -370,47 +426,47 @@ const Tupad = () => {
                         <TableCell align="center">{historyRow.budget}</TableCell>
                         <TableCell align="center">
                         <Typography
-  variant="body2"
-  sx={{
-    textDecoration: "underline",
-    color: "blue",
-    cursor: "pointer",
-  }}
-  onClick={async () => {
-    console.log("Row Data:", row);
-    console.log("Tupad ID:", row.id); // Use row.id since it's the actual Tupad ID
+                          variant="body2"
+                          sx={{
+                            textDecoration: "underline",
+                            color: "blue",
+                            cursor: "pointer",
+                          }}
+                          onClick={async () => {
+                            console.log("Row Data:", row);
+                            console.log("Tupad ID:", row.id); // Use row.id since it's the actual Tupad ID
 
-    if (!row.id) {
-      console.error("Tupad ID is undefined for this row");
-      return;
-    }
+                            if (!row.id) {
+                              console.error("Tupad ID is undefined for this row");
+                              return;
+                            }
 
-    try {
-      const response = await fetch(`http://localhost:8000/api/tupads_papers/tupad/${row.id}`);
-      const data = response.ok ? await response.json() : {}; 
-      console.log("Fetched Data:", data);
+                            try {
+                              const response = await fetch(`http://localhost:8000/api/tupads_papers/tupad/${row.id}`);
+                              const data = response.ok ? await response.json() : {}; 
+                              console.log("Fetched Data:", data);
 
-      // Set statuses, even if data is empty
-      setStatuses([
-        { name: "Budget", date: formatDateTime(data.budget) || "" },
-        { name: "Received from Budget", date: formatDateTime(data.received_from_budget) || "" },
-        { name: "TSSD Sir JV", date: formatDateTime(data.tssd_sir_jv) || "" },
-        { name: "Received from TSSD Sir JV", date: formatDateTime(data.received_from_tssd_sir_jv) || "" },
-        { name: "RD", date: formatDateTime(data.rd) || "" },
-        { name: "Received from RD", date: formatDateTime(data.received_from_rd) || "" },
-      ]);
+                              // Set statuses, even if data is empty
+                              setStatuses([
+                                { name: "Budget", date: formatDateTime(data.budget) || "" },
+                                { name: "Received from Budget", date: formatDateTime(data.received_from_budget) || "" },
+                                { name: "TSSD Sir JV", date: formatDateTime(data.tssd_sir_jv) || "" },
+                                { name: "Received from TSSD Sir JV", date: formatDateTime(data.received_from_tssd_sir_jv) || "" },
+                                { name: "RD", date: formatDateTime(data.rd) || "" },
+                                { name: "Received from RD", date: formatDateTime(data.received_from_rd) || "" },
+                              ]);
 
-      setSelectedTupadsId(row.id); // Use the correct Tupad ID
-      setStatusOpen(true); // Ensure modal opens
+                              setSelectedTupadsId(row.id); // Use the correct Tupad ID
+                              setStatusOpen(true); // Ensure modal opens
 
-    } catch (error) {
-      console.error("Error fetching data:", error);
-      setStatusOpen(true); // Open modal even if fetch fails
-    }
-  }}
->
-  View Details
-</Typography>
+                            } catch (error) {
+                              console.error("Error fetching data:", error);
+                              setStatusOpen(true); // Open modal even if fetch fails
+                            }
+                          }}
+                        >
+                          View Details
+                        </Typography>
 
 
                       </TableCell>
@@ -448,6 +504,122 @@ const Tupad = () => {
 
   return (
     <div className="tupad-container">
+
+<Modal open={editModalOpen} onClose={() => setEditModalOpen(false)}>
+  <Box
+    sx={{
+      position: 'absolute',
+      top: '50%',
+      left: '50%',
+      transform: 'translate(-50%, -50%)',
+      width: '80%',
+      bgcolor: 'background.paper',
+      boxShadow: 24,
+      p: 4,
+      borderRadius: 2,
+    }}
+  >
+    <Typography variant="h6" gutterBottom> Insert New WPsadasd </Typography>
+
+    <Box
+      sx={{
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
+        gap: 2,
+        alignItems: 'center',
+      }}
+    >
+      {/* PFO Dropdown */}
+      <FormControl fullWidth>
+        <InputLabel>PFO</InputLabel>
+        <Select
+          value={selectedEntry?.pfo || ''}
+          onChange={(e) => handleInputChange('pfo', e.target.value)}
+        >
+          {PFO_OPTIONS.map((option) => (
+            <MenuItem key={option} value={option}>
+              {option}
+            </MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+
+      {/* Series Number (Read-only) */}
+      <TextField
+        fullWidth
+        label="Series Number"
+        value={selectedEntry?.pfo ? `TUPAD${selectedEntry?.pfo}-${new Date().getFullYear()}-${selectedEntry?.seriesNo || ''}` : ''}
+        margin="normal"
+        InputProps={{ readOnly: true }}
+      />
+
+      {/* ADL Numbers List */}
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+        {(selectedEntry?.adlNo || []).map((adl, index) => (
+          <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <TextField
+              fullWidth
+              label={`ADL Number ${index + 1}`}
+              value={adl}
+              onChange={(e) => {
+                const updatedAdlNumbers = [...selectedEntry.adlNo];
+                updatedAdlNumbers[index] = e.target.value;
+                handleInputChange('adlNo', updatedAdlNumbers);
+              }}
+            />
+          </Box>
+        ))}
+      </Box>
+
+      {/* Other Inputs */}
+      <TextField
+        fullWidth
+        label="Number of Target"
+        value={selectedEntry?.target || ''}
+        onChange={(e) => handleInputChange('target', e.target.value)}
+      />
+      <TextField
+        fullWidth
+        label="Initial"
+        value={selectedEntry?.initial || ''}
+        onChange={(e) => handleInputChange('initial', e.target.value)}
+      />
+      <TextField
+        fullWidth
+        label="Date Received"
+        value={selectedEntry?.history?.[0]?.dateReceived || ''}
+        onChange={(e) => handleInputChange('dateReceived', e.target.value)}
+        type="date"
+        InputLabelProps={{ shrink: true }}
+      />
+      <TextField
+        fullWidth
+        label="Duration (in months)"
+        value={parseInt(selectedEntry?.history?.[0]?.duration) || ''}
+        onChange={(e) => handleInputChange('duration', e.target.value)}
+        type="number"
+      />
+      <TextField
+        fullWidth
+        label="Location"
+        value={selectedEntry?.history?.[0]?.location || ''}
+        onChange={(e) => handleInputChange('location', e.target.value)}
+      />
+      <TextField
+        fullWidth
+        label="Budget (₱)"
+        value={selectedEntry?.history?.[0]?.budget || ''}
+        onChange={(e) => handleInputChange('budget', e.target.value)}
+        type="number"
+      />
+    </Box>
+
+    <Button fullWidth variant="contained" sx={{ marginTop: 3 }} onClick={handleSaveChanges}>
+      Save
+    </Button>
+  </Box>
+</Modal>
+
 
     {/* MODAL */}
     <Modal open={modalOpen} onClose={() => setModalOpen(false)}>
@@ -500,23 +672,28 @@ const Tupad = () => {
 
             </Box>
 
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <TextField
-                fullWidth
-                label="ADL Number"
-                value={`ADL-${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`}
-                margin="normal"
-                InputProps={{ readOnly: true }}
-              />
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+  {adlNumbers.map((adl, index) => (
+    <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      <TextField
+        fullWidth
+        label={`ADL Number ${index + 1}`}
+        value={adlNumbers[index]}
+        onChange={(e) => {
+          const updatedAdlNumbers = [...adlNumbers];
+          updatedAdlNumbers[index] = e.target.value;
+          setAdlNumbers(updatedAdlNumbers);
+        }}
+      />
+      {index === adlNumbers.length - 1 && (
+        <Button onClick={() => setAdlNumbers([...adlNumbers, ''])}>
+          +
+        </Button>
+      )}
+    </Box>
+  ))}
+</Box>
 
-              <TextField
-                fullWidth
-                label="Value (XXX)"
-                value={newEntry.adlNo}
-                onChange={(e) => handleInputChange('adlNo', e.target.value)}
-                margin="normal"
-              />
-            </Box>
 
             <TextField
               fullWidth
@@ -704,14 +881,15 @@ const Tupad = () => {
 
     <TableContainer component={Paper} className="tupad-table">
       <Table aria-label="collapsible table">
-        <TableHead 
+              <TableHead 
           align="center"
           sx={{
             position: "sticky",
             top: 0,
             zIndex: 1000,
             backgroundColor: "#003366",
-          }} className="tupad-table-head"
+          }} 
+          className="tupad-table-head"
         >
           <TableRow>
             <TableCell sx={{ fontWeight: "bold", color: "white" }} />
@@ -721,6 +899,7 @@ const Tupad = () => {
             <TableCell align="center" sx={{ fontWeight: "bold", color: "white" }}>No. Target</TableCell>
             <TableCell align="center" sx={{ fontWeight: "bold", color: "white" }}>Initial</TableCell>
             <TableCell align="center" sx={{ fontWeight: "bold", color: "white" }}>Status</TableCell>
+            <TableCell align="center" sx={{ fontWeight: "bold", color: "white" }}>Action</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -728,6 +907,7 @@ const Tupad = () => {
             <Row key={row.seriesNo} row={row} />
           ))}
         </TableBody>
+
       </Table>
     </TableContainer>
 

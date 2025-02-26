@@ -11,7 +11,7 @@ class CreateTupadsTable extends Migration
         Schema::create('tupads', function (Blueprint $table) {
             $table->id(); // Primary key
             $table->string('series_no');
-            $table->string('adl_no');
+            $table->json('adl_no')->nullable(); // Change from string to JSON
             $table->string('pfo');
             $table->integer('target');
             $table->float('initial');

@@ -13,3 +13,5 @@ Route::get('/tupads_papers/tupad/{tupad_id}', [TupadPaperController::class, 'sho
 Route::post('/tupads', [TupadController::class, 'store']);
 Route::get('/tupads', [TupadController::class, 'getAll']);
 Route::get('/tupads/latest-series/{pfo}', [TupadController::class, 'getLatestSeriesNo']);
+Route::get('/tupad/{id}', [TupadController::class, 'show']); // Get specific record
+Route::put('/tupad/{id}', [TupadController::class, 'update']); // Update record

@@ -22,10 +22,12 @@ class Tupad extends Model
         'budget',
     ];
 
+    protected $casts = [
+        'adl_no' => 'array', // Convert JSON to an array automatically
+    ];
+
     public function history()
-{
-    return $this->hasMany(TupadsPaper::class, 'tupad_id');
+    {
+        return $this->hasMany(TupadsPaper::class, 'tupad_id');
+    }
 }
-
-}
-

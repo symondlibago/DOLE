@@ -40,7 +40,7 @@ class TupadController extends Controller
     {
         $request->validate([
             'series_no' => 'required|string|max:255',
-            'adl_no' => 'required|string|max:255',
+            'adl_no' => 'required|array',
             'pfo' => 'required|string|max:255',
             'target' => 'required|integer',
             'initial' => 'required|numeric',
@@ -74,5 +74,47 @@ class TupadController extends Controller
     $latestSeriesNumber = $latestSeries ? intval(substr($latestSeries, -3)) : 0; // Extract last 3 digits
     return response()->json(['latestSeriesNo' => $latestSeriesNumber]);
 }
+
+
+public function show($id)
+{
+    $tupad = Tupad::with('history')->find($id);
+
+    if (!$tupad) {
+        return response()->json(['message' => 'Tupad record not found'], 404);
+    }
+
+    return response()->json($tupad);
+}
+
+public function update(Request $request, $id)
+{
+    $tupad = Tupad::find($id);
+
+    if (!$tupad) {
+        return response()->json(['message' => 'Tupad record not found'], 404);
+    }
+
+    $request->validate([
+        'series_no' => 'required|string|max:255',
+        'adl_no' => 'required|array',
+        'pfo' => 'required|string|max:255',
+        'target' => 'required|integer',
+        'initial' => 'required|numeric',
+        'status' => 'required|string|max:255',
+        'date_received' => 'required|date',
+        'duration' => 'required|integer',
+        'location' => 'required|string|max:255',
+        'budget' => 'required|numeric|min:0',
+    ]);
+
+    $tupad->update($request->all());
+
+    return response()->json([
+        'message' => 'Tupad record updated successfully!',
+        'data' => $tupad,
+    ]);
+}
+
 
 }
