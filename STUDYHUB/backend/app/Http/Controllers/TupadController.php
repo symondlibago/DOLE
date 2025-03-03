@@ -36,28 +36,41 @@ class TupadController extends Controller
 
 
 
-    public function store(Request $request)
-    {
-        $request->validate([
-            'series_no' => 'required|string|max:255',
-            'adl_no' => 'required|array',
-            'pfo' => 'required|string|max:255',
-            'target' => 'required|integer',
-            'initial' => 'required|numeric',
-            'status' => 'required|string|max:255',
-            'date_received' => 'required|date',
-            'duration' => 'required|integer',
-            'location' => 'required|string|max:255',
-            'budget' => 'required|numeric|min:0',
+public function storeOrUpdate(Request $request, $id = null)
+{
+    $validatedData = $request->validate([
+        'series_no' => 'required|string|max:255',
+        'adl_no' => 'required|array',
+        'pfo' => 'required|string|max:255',
+        'target' => 'required|integer',
+        'initial' => 'required|numeric',
+        'status' => 'required|string|max:255',
+        'date_received' => 'required|date',
+        'duration' => 'required|integer',
+        'location' => 'required|string|max:255',
+        'budget' => 'required|numeric|min:0',
+    ]);
+
+    if ($id) {
+        // **Update Existing Record**
+        $tupad = Tupad::findOrFail($id);
+        $tupad->update($validatedData);
+        return response()->json([
+            'message' => 'Tupad record updated successfully!',
+            'data' => $tupad,
         ]);
-
-        $tupad = Tupad::create($request->all());
-
+    } else {
+        // **Create New Record**
+        $tupad = Tupad::create($validatedData);
         return response()->json([
             'message' => 'Tupad record created successfully!',
             'data' => $tupad,
         ], 201);
     }
+}
+
+
+    
 
     public function getAll()
     {

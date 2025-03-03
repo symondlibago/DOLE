@@ -26,7 +26,7 @@ import InputAdornment  from '@mui/material/InputAdornment';
 import Paper from '@mui/material/Paper';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
-import { IoIosAddCircleOutline } from "react-icons/io";
+import { IoIosAddCircleOutline, IoIosTrash} from "react-icons/io";
 import { MdOutlineFileDownload } from "react-icons/md";
 import { CiSearch } from "react-icons/ci";
 import API_URL from './api';
@@ -56,8 +56,6 @@ const Tupad = () => {
   const [openRows, setOpenRows] = useState({});
   const [selectedTupadsId, setSelectedTupadsId] = useState(null);
   const [statuses, setStatuses] = useState([]);
-  const [editModalOpen, setEditModalOpen] = useState(false);
-  const [selectedRow, setSelectedRow] = useState(null);
   const formatDateTime = (dateString) => {
     return dateString ? new Date(dateString).toISOString().slice(0, 16) : "mm/dd/yyyy";
   };
@@ -101,19 +99,17 @@ const Tupad = () => {
 };
 
   
-  
-
-
 const filteredRows = rows.filter(row =>
-  row.seriesNo.toLowerCase().includes(searchQuery.toLowerCase()) ||
+  (row.seriesNo && row.seriesNo.toLowerCase().includes(searchQuery.toLowerCase())) ||
   (Array.isArray(row.adlNo) && row.adlNo.some(adl => 
     String(adl).toLowerCase().includes(searchQuery.toLowerCase())
-  )) || // Check each ADL number in the array
-  row.pfo.toLowerCase().includes(searchQuery.toLowerCase()) ||
-  row.history.some(historyRow => 
-    historyRow.dateReceived.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  )) || 
+  (row.pfo && row.pfo.toLowerCase().includes(searchQuery.toLowerCase())) ||
+  (Array.isArray(row.history) && row.history.some(historyRow => 
+    historyRow.dateReceived && historyRow.dateReceived.toLowerCase().includes(searchQuery.toLowerCase())
+  ))
 );
+
 
   const handleClick = (event) => {
     setAnchorEl(event.currentTarget);
@@ -147,42 +143,7 @@ const filteredRows = rows.filter(row =>
   };
 
   
-  const paginatedRows = filteredRows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
-  const PFO_OPTIONS = ['CDO', 'BUKIDNON', 'TSSD', 'MISOR', 'MISOC', 'LDN', 'CAMIGUIN'];
-
-  useEffect(() => {
-    const fetchTupadData = async () => {
-      try {
-        const response = await axios.get(`${API_URL}/api/tupads`); 
-        const data = response.data.data;
-
-        const formattedData = data.map((item, index) => ({
-          id: item.id || index, // Ensure each row has a unique ID
-          seriesNo: item.series_no,
-          adlNo: item.adl_no,
-          pfo: item.pfo,
-          target: item.target,
-          initial: item.initial,
-          status: item.status,
-          budget: item.budget,
-          history: [
-            {
-              dateReceived: item.date_received || 'N/A',
-              duration: `${item.duration} months`,
-              location: item.location || 'N/A',
-              budget: item.budget || 0,
-            },
-          ],
-        }));
-        
-        setRows(formattedData);
-      } catch (error) {
-        console.error('Error fetching Tupad data:', error);
-      }
-    };
-
-    fetchTupadData();
-  }, []);
+  
 
   const handleExport = () => {
     const headers = ["Series No", "ADL No", "PFO", "No. Target", "Initial", "Status", "Date Received", "Duration", "Location", "Budget"];
@@ -191,7 +152,6 @@ const filteredRows = rows.filter(row =>
     csvRows.push(headers.join(","));
   
     paginatedRows.forEach(row => {
-      // Check if history exists and has at least one entry
       const history = Array.isArray(row.history) && row.history.length > 0 ? row.history[0] : {};
   
       const rowData = [
@@ -201,15 +161,14 @@ const filteredRows = rows.filter(row =>
         row.target,
         row.initial,
         row.status,
-        history.dateReceived || 'N/A',  // Extract from history
-        history.duration || 'N/A',  // Extract from history
-        history.location || 'N/A',  // Extract from history
-        history.budget || '0',  // Extract from history
+        history.dateReceived || 'N/A',  
+        history.duration || 'N/A',  
+        history.location || 'N/A',  
+        history.budget || '0',  
       ];
       csvRows.push(rowData.join(","));
     });
   
-    // Create a Blob with CSV data
     const blob = new Blob([csvRows.join("\n")], { type: "text/csv" });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -230,128 +189,167 @@ const filteredRows = rows.filter(row =>
     if (field === "pfo" && value) {
       try {
         const response = await axios.get(`${API_URL}/api/tupads/latest-series/${value}`);
-        const latestSeriesNo = response.data.latestSeriesNo || 0; // Default to 0 if no records exist
-        const nextSeriesNo = String(latestSeriesNo + 1).padStart(3, "0"); // Format as 3-digit (001, 002, etc.)
+        const latestSeriesNo = response.data.latestSeriesNo || 0; 
+        const nextSeriesNo = String(latestSeriesNo + 1).padStart(3, "0"); 
   
         setNewEntry((prev) => ({
           ...prev,
-          seriesNo: nextSeriesNo, // Auto-fill the series number
+          seriesNo: nextSeriesNo, 
         }));
       } catch (error) {
         console.error("Error fetching latest series number:", error);
       }
     }
   };
+
+  const resetForm = () => {
+    setNewEntry({
+      pfo: '',
+      seriesNo: '',
+      adlNo: [''],
+      target: '',
+      initial: '',
+      status: 'Pending',
+      dateReceived: '',
+      duration: '',
+      location: '',
+      budget: '',
+    });
+  
+    setAdlNumbers(['']); 
+    setSelectedEntry(null);
+  };
+  
   
   const [adlNumbers, setAdlNumbers] = useState(['']);
-
-
-  const handleAddNewEntry = () => {
-    const formattedSeriesNo = newEntry.pfo
-      ? `TUPAD${newEntry.pfo}-${new Date().getFullYear()}-${newEntry.seriesNo}`
-      : '';
-    
-    const formattedAdlNos = adlNumbers.map(
-      (adl) => `ADL-${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${adl}`
-    );
-
-    const payload = {
-      series_no: formattedSeriesNo,
-      adl_no: formattedAdlNos, // Send array of ADL numbers
-      pfo: newEntry.pfo,
-      target: parseInt(newEntry.target, 10),
-      initial: parseFloat(newEntry.initial),
-      status: newEntry.status,
-      date_received: newEntry.dateReceived,
-      duration: parseInt(newEntry.duration, 10),
-      location: newEntry.location,
-      budget: parseFloat(newEntry.budget),
-    };
-  
-    axios
-      .post(`http://localhost:8000/api/tupads`, payload)
-      .then((response) => {
-        console.log('Entry created successfully:', response.data);
-  
-        const newEntryData = {
-          seriesNo: payload.series_no,
-          adlNo: payload.adl_no,
-          pfo: payload.pfo,
-          target: payload.target,
-          initial: payload.initial,
-          status: payload.status,
-          budget: payload.budget,
-          history: [
-            {
-              dateReceived: payload.date_received || 'N/A',
-              duration: `${payload.duration} months`,
-              location: payload.location || 'N/A',
-              budget: payload.budget || 0,
-            },
-          ],
-        };
-  
-        setRows((prevRows) => [...prevRows, newEntryData]);
-  
-        setModalOpen(false);
-        setNewEntry({
-          pfo: '',
-          seriesNo: '',
-          adlNo: '',
-          target: '',
-          initial: '',
-          status: 'Pending',
-          dateReceived: '',
-          duration: '',
-          location: '',
-          budget: '',
-        });
-      })
-      .catch((error) => {
-        console.error('Error creating entry:', error.response?.data || error.message);
-        alert(`Error: ${error.response?.data?.message || 'An error occurred while creating the entry.'}`);
-      });
-  };
-
   const [selectedEntry, setSelectedEntry] = useState(null);
 
+  const paginatedRows = filteredRows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+  const PFO_OPTIONS = ['CDO', 'BUKIDNON', 'TSSD', 'MISOR', 'MISOC', 'LDN', 'CAMIGUIN'];
 
-  const handleEdit = (rowData) => {
-    console.log("Editing row:", rowData); // Debugging: Check if data is received
-    setSelectedRow(rowData); // Set selected row data
-    setSelectedEntry(rowData); // Set selected entry data
-    setEditModalOpen(true); // Open modal
-  };
-  
-  
-  
-  const handleSaveChanges = async () => {
-    if (!selectedRow) return;
-  
+  const fetchTupadData = async () => {
     try {
-      const response = await fetch(`http://localhost:8000/api/tupad/${selectedRow.id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(selectedRow),
-      });
+      const response = await axios.get(`${API_URL}/api/tupads`);
+      const data = response.data.data;
   
-      if (response.ok) {
-        const updatedData = await response.json();
-        console.log("Updated successfully:", updatedData);
-        setEditModalOpen(false); // Close modal after saving
-      } else {
-        console.error("Failed to update record.");
-      }
+      const formattedData = data.map((item, index) => ({
+        id: item.id || index, 
+        seriesNo: item.series_no,
+        adlNo: item.adl_no,
+        pfo: item.pfo,
+        target: item.target,
+        initial: item.initial,
+        status: item.status,
+        budget: item.budget,
+        history: [
+          {
+            dateReceived: item.date_received || 'N/A',
+            duration: `${item.duration} months`,
+            location: item.location || 'N/A',
+            budget: item.budget || 0,
+          },
+        ],
+      }));
+  
+      setRows(formattedData);
     } catch (error) {
-      console.error("Error updating record:", error);
+      console.error('Error fetching Tupad data:', error);
     }
+    
   };
   
+  useEffect(() => {
+    fetchTupadData();
+  }, []);
+
+  const handleEditEntry = (entry) => {
+    console.log('Selected Entry:', entry); 
+  
+    setSelectedEntry(entry); 
+    
+    const cleanedAdlNumbers = entry.adlNo.map(adl => adl.split('-').pop());
+
+    setNewEntry({
+      pfo: entry.pfo || '',
+      seriesNo: entry.seriesNo ? entry.seriesNo.split('-').pop() : '',
+      adlNo: cleanedAdlNumbers, 
+      target: entry.target || '',
+      initial: entry.initial || '',
+      status: entry.status || 'Pending',
+      dateReceived: entry.history?.[0]?.dateReceived || '',
+      duration: entry.history?.[0]?.duration?.replace(' months', '') || '',
+      location: entry.history?.[0]?.location || '',
+      budget: entry.budget || '',
+    });
+
+    setAdlNumbers(cleanedAdlNumbers);
+    setModalOpen(true);
+};
 
   
   
+
+const handleAddNewEntry = () => {
+  const formattedSeriesNo = newEntry.pfo
+    ? `TUPAD${newEntry.pfo}-${new Date().getFullYear()}-${newEntry.seriesNo}`
+    : '';
+
+ 
+  const formattedAdlNos = adlNumbers.map(adl => 
+    adl.startsWith(`ADL-${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-`) 
+      ? adl 
+      : `ADL-${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${adl}`
+  );
+
+  const payload = {
+    series_no: formattedSeriesNo,
+    adl_no: formattedAdlNos,
+    pfo: newEntry.pfo,
+    target: parseInt(newEntry.target, 10),
+    initial: parseFloat(newEntry.initial),
+    status: newEntry.status,
+    date_received: newEntry.dateReceived,
+    duration: parseInt(newEntry.duration, 10),
+    location: newEntry.location,
+    budget: parseFloat(newEntry.budget),
+  };
+
+  if (selectedEntry) {
+    
+    axios.put(`http://localhost:8000/api/tupads/${selectedEntry.id}`, payload)
+      .then((response) => {
+        console.log('Entry updated successfully:', response.data);
+
+        setRows((prevRows) =>
+          prevRows.map((row) =>
+            row.id === selectedEntry.id
+              ? { ...row, ...response.data.data }
+              : row
+          )
+        );
+
+        setSelectedEntry(null);
+        fetchTupadData();
+      })
+      .catch((error) => console.error('Error updating entry:', error.response?.data || error.message));
+
+  } else {
+    
+    axios.post(`http://localhost:8000/api/tupads`, payload)
+      .then((response) => {
+        console.log('Entry created successfully:', response.data);
+
+        setRows((prevRows) => [...prevRows, response.data.data]);
+        fetchTupadData(); 
+      })
+      .catch((error) => console.error('Error creating entry:', error.response?.data || error.message));
+  }
+  setModalOpen(false);
+};
+
+
+  
+
   function Row(props) {
     const { row } = props;
     const [open, setOpen] = useState(false);
@@ -359,9 +357,9 @@ const filteredRows = rows.filter(row =>
     const getStatusColor = (status) => {
       switch (status.toLowerCase()) {
         case 'completed':
-          return '#4CAF50'; // Green
+          return '#4CAF50'; 
         case 'pending':
-          return '#FF9800'; // Orange
+          return '#FF9800'; 
         default:
           return 'black';
       }
@@ -377,7 +375,8 @@ const filteredRows = rows.filter(row =>
               {open ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
             </IconButton>
           </TableCell>
-          <TableCell component="th" scope="row">{row.seriesNo}</TableCell>
+          <TableCell component="th" scope="row">{row.seriesNo}</TableCell>  {/* REPLACE WITH PROJECT TITLE  */}
+          <TableCell align="center">{row.seriesNo}</TableCell>
           <TableCell align="center">
             {Array.isArray(row.adlNo) ? row.adlNo.join(" | ") : row.adlNo}
           </TableCell>
@@ -388,15 +387,16 @@ const filteredRows = rows.filter(row =>
             {row.status}
           </TableCell>
           <TableCell align="center">
-            <Button
-              variant="contained"
-              color="primary"
-              size="small"
-              onClick={() => handleEdit(row)}
-            >
-              Edit
-            </Button>
-          </TableCell>
+  <Button
+    variant="contained"
+    color="primary"
+    size="small"
+    onClick={() => handleEditEntry(row)} 
+  >
+    Edit
+  </Button>
+</TableCell>
+
         </TableRow>
 
         <TableRow>
@@ -434,7 +434,7 @@ const filteredRows = rows.filter(row =>
                           }}
                           onClick={async () => {
                             console.log("Row Data:", row);
-                            console.log("Tupad ID:", row.id); // Use row.id since it's the actual Tupad ID
+                            console.log("Tupad ID:", row.id); 
 
                             if (!row.id) {
                               console.error("Tupad ID is undefined for this row");
@@ -446,7 +446,7 @@ const filteredRows = rows.filter(row =>
                               const data = response.ok ? await response.json() : {}; 
                               console.log("Fetched Data:", data);
 
-                              // Set statuses, even if data is empty
+                             
                               setStatuses([
                                 { name: "Budget", date: formatDateTime(data.budget) || "" },
                                 { name: "Received from Budget", date: formatDateTime(data.received_from_budget) || "" },
@@ -456,12 +456,12 @@ const filteredRows = rows.filter(row =>
                                 { name: "Received from RD", date: formatDateTime(data.received_from_rd) || "" },
                               ]);
 
-                              setSelectedTupadsId(row.id); // Use the correct Tupad ID
-                              setStatusOpen(true); // Ensure modal opens
+                              setSelectedTupadsId(row.id); 
+                              setStatusOpen(true); 
 
                             } catch (error) {
                               console.error("Error fetching data:", error);
-                              setStatusOpen(true); // Open modal even if fetch fails
+                              setStatusOpen(true); 
                             }
                           }}
                         >
@@ -505,36 +505,38 @@ const filteredRows = rows.filter(row =>
   return (
     <div className="tupad-container">
 
-<Modal open={editModalOpen} onClose={() => setEditModalOpen(false)}>
+    {/* INSERTING AND UPDATING MODAL */}
+    <Modal open={modalOpen} onClose={() => setModalOpen(false)}>
   <Box
     sx={{
-      position: 'absolute',
-      top: '50%',
-      left: '50%',
-      transform: 'translate(-50%, -50%)',
-      width: '80%',
-      bgcolor: 'background.paper',
+      position: "absolute",
+      top: "50%",
+      left: "50%",
+      transform: "translate(-50%, -50%)",
+      width: "80%",
+      bgcolor: "background.paper",
       boxShadow: 24,
       p: 4,
       borderRadius: 2,
     }}
   >
-    <Typography variant="h6" gutterBottom> Insert New WPsadasd </Typography>
+    <Typography variant="h6" gutterBottom>
+      {selectedEntry ? "Edit WP" : "Insert New WP"}
+    </Typography>
 
     <Box
       sx={{
-        display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
+        display: "grid",
+        gridTemplateColumns: "1fr 1fr",
         gap: 2,
-        alignItems: 'center',
+        alignItems: "center",
       }}
     >
-      {/* PFO Dropdown */}
       <FormControl fullWidth>
         <InputLabel>PFO</InputLabel>
         <Select
-          value={selectedEntry?.pfo || ''}
-          onChange={(e) => handleInputChange('pfo', e.target.value)}
+          value={newEntry.pfo}
+          onChange={(e) => handleInputChange("pfo", e.target.value)}
         >
           {PFO_OPTIONS.map((option) => (
             <MenuItem key={option} value={option}>
@@ -544,210 +546,106 @@ const filteredRows = rows.filter(row =>
         </Select>
       </FormControl>
 
-      {/* Series Number (Read-only) */}
-      <TextField
-        fullWidth
-        label="Series Number"
-        value={selectedEntry?.pfo ? `TUPAD${selectedEntry?.pfo}-${new Date().getFullYear()}-${selectedEntry?.seriesNo || ''}` : ''}
-        margin="normal"
-        InputProps={{ readOnly: true }}
-      />
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+        <TextField
+          fullWidth
+          label="Series Number"
+          value={
+            newEntry.pfo
+              ? `TUPAD${newEntry.pfo}-${new Date().getFullYear()}-${newEntry.seriesNo}`
+              : ""
+          }
+          margin="normal"
+          InputProps={{ readOnly: true }}
+        />
+      </Box>
 
-      {/* ADL Numbers List */}
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-        {(selectedEntry?.adlNo || []).map((adl, index) => (
-          <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+        {adlNumbers.map((adl, index) => (
+          <Box key={index} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
             <TextField
               fullWidth
               label={`ADL Number ${index + 1}`}
-              value={adl}
+              value={adlNumbers[index]}
               onChange={(e) => {
-                const updatedAdlNumbers = [...selectedEntry.adlNo];
+                const updatedAdlNumbers = [...adlNumbers];
                 updatedAdlNumbers[index] = e.target.value;
-                handleInputChange('adlNo', updatedAdlNumbers);
+                setAdlNumbers(updatedAdlNumbers);
               }}
             />
+            {adlNumbers.length > 1 && (
+              <IconButton
+                onClick={() => {
+                  const updatedAdlNumbers = adlNumbers.filter((_, i) => i !== index);
+                  setAdlNumbers(updatedAdlNumbers);
+                }}
+              >
+                <IoIosTrash color="red" />
+              </IconButton>
+            )}
+            {index === adlNumbers.length - 1 && (
+              <IconButton onClick={() => setAdlNumbers([...adlNumbers, ""])}>
+                <IoIosAddCircleOutline color="green" />
+              </IconButton>
+            )}
           </Box>
         ))}
       </Box>
 
-      {/* Other Inputs */}
       <TextField
         fullWidth
         label="Number of Target"
-        value={selectedEntry?.target || ''}
-        onChange={(e) => handleInputChange('target', e.target.value)}
+        value={newEntry.target}
+        onChange={(e) => handleInputChange("target", e.target.value)}
       />
       <TextField
         fullWidth
         label="Initial"
-        value={selectedEntry?.initial || ''}
-        onChange={(e) => handleInputChange('initial', e.target.value)}
+        value={newEntry.initial}
+        onChange={(e) => handleInputChange("initial", e.target.value)}
       />
       <TextField
         fullWidth
         label="Date Received"
-        value={selectedEntry?.history?.[0]?.dateReceived || ''}
-        onChange={(e) => handleInputChange('dateReceived', e.target.value)}
+        value={newEntry.dateReceived}
+        onChange={(e) => handleInputChange("dateReceived", e.target.value)}
         type="date"
-        InputLabelProps={{ shrink: true }}
+        InputLabelProps={{
+          shrink: true,
+        }}
       />
       <TextField
         fullWidth
         label="Duration (in months)"
-        value={parseInt(selectedEntry?.history?.[0]?.duration) || ''}
-        onChange={(e) => handleInputChange('duration', e.target.value)}
+        value={newEntry.duration}
+        onChange={(e) => handleInputChange("duration", e.target.value)}
         type="number"
       />
       <TextField
         fullWidth
         label="Location"
-        value={selectedEntry?.history?.[0]?.location || ''}
-        onChange={(e) => handleInputChange('location', e.target.value)}
+        value={newEntry.location}
+        onChange={(e) => handleInputChange("location", e.target.value)}
       />
       <TextField
         fullWidth
         label="Budget (₱)"
-        value={selectedEntry?.history?.[0]?.budget || ''}
-        onChange={(e) => handleInputChange('budget', e.target.value)}
+        value={newEntry.budget}
+        onChange={(e) => handleInputChange("budget", e.target.value)}
         type="number"
       />
     </Box>
-
-    <Button fullWidth variant="contained" sx={{ marginTop: 3 }} onClick={handleSaveChanges}>
+    <Button
+      fullWidth
+      variant="contained"
+      sx={{ marginTop: 3 }}
+      onClick={handleAddNewEntry}
+    >
       Save
     </Button>
   </Box>
 </Modal>
 
-
-    {/* MODAL */}
-    <Modal open={modalOpen} onClose={() => setModalOpen(false)}>
-        <Box
-          sx={{
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            width: '80%',
-            bgcolor: 'background.paper',
-            boxShadow: 24,
-            p: 4,
-            borderRadius: 2,
-          }}
-        >
-          <Typography variant="h6" gutterBottom>
-            Insert New WPsadasd
-          </Typography>
-          <Box
-            sx={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr', // Two columns
-              gap: 2, // Space between fields
-              alignItems: 'center', // Align items in the center
-            }}
-          >
-            <FormControl fullWidth>
-              <InputLabel>PFO</InputLabel>
-              <Select
-                value={newEntry.pfo}
-                onChange={(e) => handleInputChange('pfo', e.target.value)}
-              >
-                {PFO_OPTIONS.map((option) => (
-                  <MenuItem key={option} value={option}>
-                    {option}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <TextField
-              fullWidth
-              label="Series Number"
-              value={newEntry.pfo ? `TUPAD${newEntry.pfo}-${new Date().getFullYear()}-${newEntry.seriesNo}` : ''}
-              margin="normal"
-              InputProps={{ readOnly: true }}
-            />
-
-            </Box>
-
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-  {adlNumbers.map((adl, index) => (
-    <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-      <TextField
-        fullWidth
-        label={`ADL Number ${index + 1}`}
-        value={adlNumbers[index]}
-        onChange={(e) => {
-          const updatedAdlNumbers = [...adlNumbers];
-          updatedAdlNumbers[index] = e.target.value;
-          setAdlNumbers(updatedAdlNumbers);
-        }}
-      />
-      {index === adlNumbers.length - 1 && (
-        <Button onClick={() => setAdlNumbers([...adlNumbers, ''])}>
-          +
-        </Button>
-      )}
-    </Box>
-  ))}
-</Box>
-
-
-            <TextField
-              fullWidth
-              label="Number of Target"
-              value={newEntry.target}
-              onChange={(e) => handleInputChange('target', e.target.value)}
-            />
-            <TextField
-              fullWidth
-              label="Initial"
-              value={newEntry.initial}
-              onChange={(e) => handleInputChange('initial', e.target.value)}
-            />
-            <TextField
-              fullWidth
-              label="Date Received"
-              value={newEntry.dateReceived}
-              onChange={(e) => handleInputChange('dateReceived', e.target.value)}
-              type="date"
-              InputLabelProps={{
-                shrink: true,
-              }}
-            />
-            <TextField
-              fullWidth
-              label="Duration (in months)"
-              value={newEntry.duration}
-              onChange={(e) => handleInputChange('duration', e.target.value)}
-              type="number"
-            />
-            <TextField
-              fullWidth
-              label="Location"
-              value={newEntry.location}
-              onChange={(e) => handleInputChange('location', e.target.value)}
-            />
-            <TextField
-              fullWidth
-              label="Budget (₱)"
-              value={newEntry.budget}
-              onChange={(e) => handleInputChange('budget', e.target.value)}
-              type="number"
-            />
-          </Box>
-          <Button
-            fullWidth
-            variant="contained"
-            sx={{ marginTop: 3 }}
-            onClick={handleAddNewEntry}
-          >
-            Save
-          </Button>
-        </Box>
-      </Modal>
 
 
       {/* STATUS MODAL */}
@@ -840,20 +738,24 @@ const filteredRows = rows.filter(row =>
       }}
     >
       <Button
-        variant="contained"
-        startIcon={<IoIosAddCircleOutline />}
-        onClick={() => setModalOpen(true)}
-        sx={{ 
-          width: "280px",  
-          height: "50px",  
-          fontSize: "1rem",  
-          backgroundColor: "#003366", 
-          color: "white", 
-          "&:hover": { backgroundColor: "#002244" } 
-        }}
-      >
-        Insert New WP
-      </Button>
+  variant="contained"
+  startIcon={<IoIosAddCircleOutline />}
+  onClick={() => {
+    resetForm();  // Clear the form first
+    setModalOpen(true);  // Then open the modal
+  }}
+  sx={{ 
+    width: "280px",  
+    height: "50px",  
+    fontSize: "1rem",  
+    backgroundColor: "#003366", 
+    color: "white", 
+    "&:hover": { backgroundColor: "#002244" } 
+  }}
+>
+  Insert New WP
+</Button>
+
 
       <TextField
         variant="outlined"
@@ -893,7 +795,8 @@ const filteredRows = rows.filter(row =>
         >
           <TableRow>
             <TableCell sx={{ fontWeight: "bold", color: "white" }} />
-            <TableCell sx={{ fontWeight: "bold", color: "white" }}>Series No</TableCell>
+            <TableCell sx={{ fontWeight: "bold", color: "white" }}>Project Title</TableCell>
+            <TableCell align="center" sx={{ fontWeight: "bold", color: "white" }}>Series No</TableCell>
             <TableCell align="center" sx={{ fontWeight: "bold", color: "white" }}>ADL No</TableCell>
             <TableCell align="center" sx={{ fontWeight: "bold", color: "white" }}>PFO</TableCell>
             <TableCell align="center" sx={{ fontWeight: "bold", color: "white" }}>No. Target</TableCell>
