@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Tupad;
 use App\Models\TupadPaper;
 use Illuminate\Http\Request;
 
@@ -15,31 +16,50 @@ class TupadPaperController extends Controller
 
     // Store a new Tupad Paper
     public function store(Request $request)
-    {
-        $request->validate([
-            'tupad_id' => 'required|exists:tupads,id',
-            'budget' => 'nullable|date',
-            'received_from_budget' => 'nullable|date',
-            'tssd_sir_jv' => 'nullable|date',
-            'received_from_tssd_sir_jv' => 'nullable|date',
-            'rd' => 'nullable|date',
-            'received_from_rd' => 'nullable|date',
-        ]);
-    
-        // Check if a record already exists for this tupad_id
-        $paper = TupadPaper::where('tupad_id', $request->tupad_id)->first();
-    
-        if ($paper) {
-            // Update existing record
-            $paper->update($request->all());
-            return response()->json(['message' => 'Updated successfully', 'data' => $paper], 200);
-        } else {
-            // Create a new record
-            $newPaper = TupadPaper::create($request->all());
-            return response()->json(['message' => 'Created successfully', 'data' => $newPaper], 201);
+{
+    $request->validate([
+        'tupad_id' => 'required|exists:tupads,id',
+        'budget' => 'nullable|date',
+        'received_from_budget' => 'nullable|date',
+        'tssd_sir_jv' => 'nullable|date',
+        'received_from_tssd_sir_jv' => 'nullable|date',
+        'rd' => 'nullable|date',
+        'received_from_rd' => 'nullable|date',
+    ]);
+
+    // Check if a record already exists for this tupad_id
+    $paper = TupadPaper::where('tupad_id', $request->tupad_id)->first();
+
+    if ($paper) {
+        // Update existing record
+        $paper->update($request->all());
+    } else {
+        // Create a new record
+        $paper = TupadPaper::create($request->all());
+    }
+
+    // Check if all fields in TupadPaper are filled
+    if (
+        !empty($paper->budget) &&
+        !empty($paper->received_from_budget) &&
+        !empty($paper->tssd_sir_jv) &&
+        !empty($paper->received_from_tssd_sir_jv) &&
+        !empty($paper->rd) &&
+        !empty($paper->received_from_rd)
+    ) {
+        // Update status in Tupad table
+        $tupad = Tupad::find($request->tupad_id);
+        if ($tupad) {
+            $tupad->update(['status' => 'Implemented']);
         }
     }
-    
+
+    return response()->json([
+        'message' => $paper->wasRecentlyCreated ? 'Created successfully' : 'Updated successfully',
+        'data' => $paper
+    ], $paper->wasRecentlyCreated ? 201 : 200);
+}
+
 
     public function show($id)
 {

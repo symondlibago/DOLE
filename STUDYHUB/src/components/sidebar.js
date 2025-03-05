@@ -16,7 +16,7 @@ const Sidebar = () => {
         <Link to="#">
 
               <span className="icon"><TbHeartRateMonitor /></span>
-              <span className="title">Monitoring System</span>
+              <span className="title">TGMMS</span>
           </Link>
 
           </li>

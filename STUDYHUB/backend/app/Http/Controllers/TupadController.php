@@ -17,17 +17,27 @@ class TupadController extends Controller
             'id' => $tupad->id, // Ensure the real primary key is sent
             'seriesNo' => $tupad->series_no, // Keep series number separate
             'adlNo' => $tupad->adl_no,
+            'project_title' => $tupad->project_title,
             'pfo' => $tupad->pfo,
-            'target' => $tupad->target,
-            'initial' => $tupad->initial,
+            'beneficiaries' => $tupad->beneficiaries,
+            'actual' => $tupad->actual,
             'status' => $tupad->status,
             'budget' => $tupad->budget,
+            'voucher_amount' => $tupad->voucher_amount,
+            'commited_date' => $tupad->commited_date,
+            'commited_date_received' => $tupad->commited_date_received,
+            'commited_status' => $tupad->commited_status,
+
             'history' => $tupad->history->map(function ($history) {
                 return [
                     'dateReceived' => $history->date_received,
                     'duration' => $history->duration . ' months',
                     'location' => $history->location,
-                    'budget' => $history->budget
+                    'budget' => $history->budget,
+                    'voucher_amount' => $history->voucher_amount,
+                    'moi' => $history->moi,
+
+
                 ];
             }),
         ];
@@ -42,17 +52,35 @@ public function storeOrUpdate(Request $request, $id = null)
         'series_no' => 'required|string|max:255',
         'adl_no' => 'required|array',
         'pfo' => 'required|string|max:255',
-        'target' => 'required|integer',
-        'initial' => 'required|numeric',
         'status' => 'required|string|max:255',
         'date_received' => 'required|date',
         'duration' => 'required|integer',
         'location' => 'required|string|max:255',
         'budget' => 'required|numeric|min:0',
+        'project_title' => 'required|string|max:255',
+        'moi' => 'required|string|max:255',
+        'beneficiaries' => 'required|integer',
+        'actual' => 'required|numeric',
+        'voucher_amount' => 'required|numeric|min:0',
+        'commited_date' => 'required|date',
+        'commited_date_received' => 'nullable|date',
     ]);
 
+    $currentDate = now()->toDateString(); 
+    $commitedDate = $validatedData['commited_date'];
+    $commitedDateReceived = $validatedData['commited_date_received'] ?? null;
+
+    if ($currentDate > $commitedDate && is_null($commitedDateReceived)) {
+        $validatedData['commited_status'] = 'Unpaid'; 
+    } elseif (!is_null($commitedDateReceived) && $commitedDateReceived > $commitedDate) {
+        $validatedData['commited_status'] = 'Late Received';
+    } elseif (!is_null($commitedDateReceived) && $commitedDateReceived <= $commitedDate) {
+        $validatedData['commited_status'] = 'Received'; 
+    } else {
+        $validatedData['commited_status'] = 'Pending';
+    }
+
     if ($id) {
-        // **Update Existing Record**
         $tupad = Tupad::findOrFail($id);
         $tupad->update($validatedData);
         return response()->json([
@@ -68,6 +96,7 @@ public function storeOrUpdate(Request $request, $id = null)
         ], 201);
     }
 }
+
 
 
     
@@ -112,13 +141,19 @@ public function update(Request $request, $id)
         'series_no' => 'required|string|max:255',
         'adl_no' => 'required|array',
         'pfo' => 'required|string|max:255',
-        'target' => 'required|integer',
-        'initial' => 'required|numeric',
         'status' => 'required|string|max:255',
         'date_received' => 'required|date',
         'duration' => 'required|integer',
         'location' => 'required|string|max:255',
         'budget' => 'required|numeric|min:0',
+        'project_title' => 'required|string|max:255',
+        'moi' => 'required|string|max:255',
+        'beneficiaries' => 'required|integer',
+        'actual' => 'required|numeric',
+        'voucher_amount' => 'required|numeric|min:0',
+        'commited_date' => 'required|date',
+        'commited_date_received' => 'nullable|date',
+        'commited_status' => 'required|string|max:255',
     ]);
 
     $tupad->update($request->all());

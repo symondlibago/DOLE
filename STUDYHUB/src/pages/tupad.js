@@ -29,6 +29,7 @@ import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import { IoIosAddCircleOutline, IoIosTrash} from "react-icons/io";
 import { MdOutlineFileDownload } from "react-icons/md";
 import { CiSearch } from "react-icons/ci";
+import { BsExclamation } from "react-icons/bs";
 import API_URL from './api';
 
 const Tupad = () => {
@@ -39,13 +40,20 @@ const Tupad = () => {
     pfo: '',
     seriesNo: '',
     adlNo: '',
-    target: '',
-    initial: '',
+    beneficiaries: '',
+    actual: '',
     status: 'Pending',
     dateReceived: '',
     duration: '',
     location: '',
     budget: '',
+    voucher_amount: '',
+    commited_date: '',
+    commited_date_received: '',
+    commited_status: 'Pending',
+    moi: '',
+    project_title: '',
+    
   });
 
   const [page, setPage] = useState(0);
@@ -96,6 +104,8 @@ const Tupad = () => {
     } catch (error) {
         console.error("Error saving data:", error.response?.data || error.message);
     }
+    fetchTupadData();
+
 };
 
   
@@ -146,7 +156,7 @@ const filteredRows = rows.filter(row =>
   
 
   const handleExport = () => {
-    const headers = ["Series No", "ADL No", "PFO", "No. Target", "Initial", "Status", "Date Received", "Duration", "Location", "Budget"];
+    const headers = ["Series No", "ADL No", "PFO", "Beneficiaries", "Actual", "Status", "Date Received", "Duration", "Location", "Budget", "MOI", "Voucher Amount"];
     const csvRows = [];
   
     csvRows.push(headers.join(","));
@@ -158,13 +168,15 @@ const filteredRows = rows.filter(row =>
         row.seriesNo,
         row.adlNo,
         row.pfo,
-        row.target,
-        row.initial,
+        row.beneficiaries,
+        row.actual,
         row.status,
         history.dateReceived || 'N/A',  
         history.duration || 'N/A',  
         history.location || 'N/A',  
-        history.budget || '0',  
+        history.budget || '0',
+        history.moi || '0',
+        history.voucher_amount || '0',
       ];
       csvRows.push(rowData.join(","));
     });
@@ -214,6 +226,12 @@ const filteredRows = rows.filter(row =>
       duration: '',
       location: '',
       budget: '',
+      voucher_amount: '',
+      commited_date: '',
+      commited_date_received: '',
+      commited_status: 'Pending',
+      moi: '',
+      project_title: '',
     });
   
     setAdlNumbers(['']); 
@@ -226,6 +244,7 @@ const filteredRows = rows.filter(row =>
 
   const paginatedRows = filteredRows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
   const PFO_OPTIONS = ['CDO', 'BUKIDNON', 'TSSD', 'MISOR', 'MISOC', 'LDN', 'CAMIGUIN'];
+  const MOI = ['Co Partners', 'Direct Administration'];
 
   const fetchTupadData = async () => {
     try {
@@ -237,16 +256,24 @@ const filteredRows = rows.filter(row =>
         seriesNo: item.series_no,
         adlNo: item.adl_no,
         pfo: item.pfo,
-        target: item.target,
-        initial: item.initial,
+        beneficiaries: item.beneficiaries,
+        actual: item.actual,
         status: item.status,
         budget: item.budget,
+        voucher_amount: item.voucher_amount,
+        commited_date: item.commited_date,
+        commited_date_received: item.commited_date_received,
+        commited_status: item.commited_status,
+        project_title: item.project_title,
         history: [
           {
             dateReceived: item.date_received || 'N/A',
             duration: `${item.duration} months`,
             location: item.location || 'N/A',
             budget: item.budget || 0,
+            moi: item.moi,
+            voucher_amount: item.voucher_amount,
+            
           },
         ],
       }));
@@ -273,13 +300,19 @@ const filteredRows = rows.filter(row =>
       pfo: entry.pfo || '',
       seriesNo: entry.seriesNo ? entry.seriesNo.split('-').pop() : '',
       adlNo: cleanedAdlNumbers, 
-      target: entry.target || '',
-      initial: entry.initial || '',
+      beneficiaries: entry.beneficiaries || '',
+      actual: entry.actual || '',
       status: entry.status || 'Pending',
       dateReceived: entry.history?.[0]?.dateReceived || '',
       duration: entry.history?.[0]?.duration?.replace(' months', '') || '',
       location: entry.history?.[0]?.location || '',
       budget: entry.budget || '',
+      voucher_amount: entry.history?.[0]?.voucher_amount || '',
+      commited_date: entry.commited_date || '',
+      commited_date_received: entry.commited_date_received || '',
+      commited_status: entry.commited_status || 'Pending',
+      moi: entry.history?.[0]?.moi || '',
+      project_title: entry.project_title || '',
     });
 
     setAdlNumbers(cleanedAdlNumbers);
@@ -305,13 +338,19 @@ const handleAddNewEntry = () => {
     series_no: formattedSeriesNo,
     adl_no: formattedAdlNos,
     pfo: newEntry.pfo,
-    target: parseInt(newEntry.target, 10),
-    initial: parseFloat(newEntry.initial),
+    beneficiaries: parseInt(newEntry.beneficiaries, 10),
+    actual: parseFloat(newEntry.actual),
     status: newEntry.status,
     date_received: newEntry.dateReceived,
     duration: parseInt(newEntry.duration, 10),
     location: newEntry.location,
     budget: parseFloat(newEntry.budget),
+    voucher_amount: parseFloat(newEntry.voucher_amount),
+    commited_date: newEntry.commited_date,
+    commited_date_received: newEntry.commited_date_received,
+    commited_status: newEntry.commited_status,
+    moi: newEntry.moi,
+    project_title: newEntry.project_title
   };
 
   if (selectedEntry) {
@@ -356,7 +395,7 @@ const handleAddNewEntry = () => {
 
     const getStatusColor = (status) => {
       switch (status.toLowerCase()) {
-        case 'completed':
+        case 'implemented':
           return '#4CAF50'; 
         case 'pending':
           return '#FF9800'; 
@@ -370,37 +409,45 @@ const handleAddNewEntry = () => {
     return (
       <>    
        <TableRow sx={{ '& > *': { borderBottom: 'unset' } }}>
-          <TableCell>
-            <IconButton aria-label="expand row" size="small" onClick={() => setOpen(!open)}>
-              {open ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
-            </IconButton>
-          </TableCell>
-          <TableCell component="th" scope="row">{row.seriesNo}</TableCell>  {/* REPLACE WITH PROJECT TITLE  */}
+       <TableCell>
+  <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: "50px" }}>
+    <span style={{ width: "24px", textAlign: "center" }}>
+      {row.commited_status.toLowerCase() === "unpaid" && (
+        <BsExclamation style={{ color: "red", fontSize: "1.7rem" }} />
+      )}
+    </span>
+    <IconButton aria-label="expand row" size="small" onClick={() => setOpen(!open)}>
+      {open ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
+    </IconButton>
+  </div>
+</TableCell>
+
+          <TableCell component="th" scope="row">{row.project_title}</TableCell>  
           <TableCell align="center">{row.seriesNo}</TableCell>
           <TableCell align="center">
             {Array.isArray(row.adlNo) ? row.adlNo.join(" | ") : row.adlNo}
           </TableCell>
           <TableCell align="center">{row.pfo}</TableCell>
-          <TableCell align="center">{row.target}</TableCell>
-          <TableCell align="center">{row.initial}</TableCell>
+          <TableCell align="center">{row.beneficiaries}</TableCell>
+          <TableCell align="center">{row.actual}</TableCell>
           <TableCell align="center" sx={{ fontWeight: 'bold', color: getStatusColor(row.status) }}>
             {row.status}
           </TableCell>
           <TableCell align="center">
-  <Button
-    variant="contained"
-    color="primary"
-    size="small"
-    onClick={() => handleEditEntry(row)} 
-  >
-    Edit
-  </Button>
-</TableCell>
+        <Button
+          variant="contained"
+          color="primary"
+          size="small"
+          onClick={() => handleEditEntry(row)} 
+        >
+          Edit
+        </Button>
+      </TableCell>
 
         </TableRow>
 
         <TableRow>
-          <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={7}>
+          <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={12}>
             <Collapse in={open} timeout="auto" className="tupad-collapse">
               <Box sx={{ margin: 1 }}>
                 <Typography variant="h6" gutterBottom component="div">
@@ -412,6 +459,8 @@ const handleAddNewEntry = () => {
                       <TableCell style={{ fontWeight: 'bold' }}>Date Received</TableCell>
                       <TableCell style={{ fontWeight: 'bold' }}>Duration</TableCell>
                       <TableCell align="center" style={{ fontWeight: 'bold' }}>Location</TableCell>
+                      <TableCell align="center" style={{ fontWeight: 'bold' }}>Mode of Implementation</TableCell>
+                      <TableCell align="center" style={{ fontWeight: 'bold' }}>Voucher Amount</TableCell>
                       <TableCell align="center" style={{ fontWeight: 'bold' }}>Budget (₱)</TableCell>
                       <TableCell align="center" style={{ fontWeight: 'bold' }}>Status History</TableCell>
                       
@@ -423,6 +472,8 @@ const handleAddNewEntry = () => {
                         <TableCell>{historyRow.dateReceived}</TableCell>
                         <TableCell>{historyRow.duration}</TableCell>
                         <TableCell align="center">{historyRow.location}</TableCell>
+                        <TableCell align="center">{historyRow.moi}</TableCell>
+                        <TableCell align="center">{historyRow.voucher_amount}</TableCell>
                         <TableCell align="center">{historyRow.budget}</TableCell>
                         <TableCell align="center">
                         <Typography
@@ -488,8 +539,8 @@ const handleAddNewEntry = () => {
       seriesNo: PropTypes.string.isRequired,
       adlNo: PropTypes.string.isRequired,
       pfo: PropTypes.string.isRequired,
-      target: PropTypes.number.isRequired,
-      initial: PropTypes.number.isRequired,
+      beneficiaries: PropTypes.number.isRequired,
+      actual: PropTypes.number.isRequired,
       status: PropTypes.string.isRequired,
       history: PropTypes.arrayOf(
         PropTypes.shape({
@@ -594,21 +645,48 @@ const handleAddNewEntry = () => {
 
       <TextField
         fullWidth
-        label="Number of Target"
-        value={newEntry.target}
-        onChange={(e) => handleInputChange("target", e.target.value)}
+        label="Project Title"
+        value={newEntry.project_title}
+        onChange={(e) => handleInputChange("project_title", e.target.value)}
+      />
+
+      <TextField
+        fullWidth
+        label="Number of Target Beneficiaries"
+        value={newEntry.beneficiaries}
+        onChange={(e) => handleInputChange("beneficiaries", e.target.value)}
       />
       <TextField
         fullWidth
-        label="Initial"
-        value={newEntry.initial}
-        onChange={(e) => handleInputChange("initial", e.target.value)}
+        label="Actual"
+        value={newEntry.actual}
+        onChange={(e) => handleInputChange("actual", e.target.value)}
       />
       <TextField
         fullWidth
         label="Date Received"
         value={newEntry.dateReceived}
         onChange={(e) => handleInputChange("dateReceived", e.target.value)}
+        type="date"
+        InputLabelProps={{
+          shrink: true,
+        }}
+      />
+      <TextField
+        fullWidth
+        label="Committed Date for ADL Budget"
+        value={newEntry.commited_date}
+        onChange={(e) => handleInputChange("commited_date", e.target.value)}
+        type="date"
+        InputLabelProps={{
+          shrink: true,
+        }}
+      />
+      <TextField
+        fullWidth
+        label="Committed Date Recieved"
+        value={newEntry.commited_date_received}
+        onChange={(e) => handleInputChange("commited_date_received", e.target.value)}
         type="date"
         InputLabelProps={{
           shrink: true,
@@ -627,11 +705,33 @@ const handleAddNewEntry = () => {
         value={newEntry.location}
         onChange={(e) => handleInputChange("location", e.target.value)}
       />
+
+        <FormControl fullWidth>
+        <InputLabel>Mode of Implementation</InputLabel>
+        <Select
+          value={newEntry.moi}
+          onChange={(e) => handleInputChange("moi", e.target.value)}
+        >
+          {MOI.map((option) => (
+            <MenuItem key={option} value={option}>
+              {option}
+            </MenuItem>
+          ))}
+          </Select>
+         </FormControl>  
+
       <TextField
         fullWidth
         label="Budget (₱)"
         value={newEntry.budget}
         onChange={(e) => handleInputChange("budget", e.target.value)}
+        type="number"
+      />
+      <TextField
+        fullWidth
+        label="Voucher Amount (₱)"
+        value={newEntry.voucher_amount}
+        onChange={(e) => handleInputChange("voucher_amount", e.target.value)}
         type="number"
       />
     </Box>
@@ -745,7 +845,7 @@ const handleAddNewEntry = () => {
     setModalOpen(true);  // Then open the modal
   }}
   sx={{ 
-    width: "280px",  
+    width: "280px",
     height: "50px",  
     fontSize: "1rem",  
     backgroundColor: "#003366", 
@@ -763,10 +863,12 @@ const handleAddNewEntry = () => {
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)}
         sx={{ 
-          width: "320px",  
+          width: "350px",  
           height: "50px",  
           backgroundColor: "white", 
           borderRadius: "5px",
+          marginLeft: "20px",
+          
           "& .MuiInputBase-input": {
             fontSize: "0.85rem" 
           }
@@ -799,8 +901,8 @@ const handleAddNewEntry = () => {
             <TableCell align="center" sx={{ fontWeight: "bold", color: "white" }}>Series No</TableCell>
             <TableCell align="center" sx={{ fontWeight: "bold", color: "white" }}>ADL No</TableCell>
             <TableCell align="center" sx={{ fontWeight: "bold", color: "white" }}>PFO</TableCell>
-            <TableCell align="center" sx={{ fontWeight: "bold", color: "white" }}>No. Target</TableCell>
-            <TableCell align="center" sx={{ fontWeight: "bold", color: "white" }}>Initial</TableCell>
+            <TableCell align="center" sx={{ fontWeight: "bold", color: "white" }}>Beneficiaries</TableCell>
+            <TableCell align="center" sx={{ fontWeight: "bold", color: "white" }}>Actual</TableCell>
             <TableCell align="center" sx={{ fontWeight: "bold", color: "white" }}>Status</TableCell>
             <TableCell align="center" sx={{ fontWeight: "bold", color: "white" }}>Action</TableCell>
           </TableRow>

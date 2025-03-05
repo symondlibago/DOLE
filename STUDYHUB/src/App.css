@@ -32,7 +32,7 @@ body {
 
 .navigations {
   position: fixed;
-  width: 250px;
+  width: 200px;
   height: 100%;
   background: #0036a3;
   border-left: 10px solid var(--blue);
@@ -94,7 +94,9 @@ body {
   line-height: 60px;
   text-align: start;
   white-space: nowrap;
+  font-size: 0.9em; /* Adjust the size */
 }
+
 
  .navigations ul li:hover a::before {
   content: '';
@@ -132,7 +134,7 @@ body {
   gap: 20px; 
   padding: 0 20px;
   position: fixed;
-  left: 250px;
+  left: 200px;
   top: 0;
   border-bottom: 2px solid var(--grey);
 }
@@ -188,12 +190,11 @@ body {
   flex-direction: column;
   align-items: center;
   height: 85vh;
-  padding: 20px;
 }
 
 .tupad-table {
   width: 100%;
-  max-width: 75rem; 
+  max-width: 85rem; 
   margin-top: 20px;
 }
 
