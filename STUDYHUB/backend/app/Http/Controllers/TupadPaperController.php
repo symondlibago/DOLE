@@ -19,33 +19,35 @@ class TupadPaperController extends Controller
 {
     $request->validate([
         'tupad_id' => 'required|exists:tupads,id',
+        'tssd' => 'nullable|date',
         'budget' => 'nullable|date',
-        'received_from_budget' => 'nullable|date',
-        'tssd_sir_jv' => 'nullable|date',
-        'received_from_tssd_sir_jv' => 'nullable|date',
+        'imsd_chief' => 'nullable|date',
+        'ard' => 'nullable|date',
         'rd' => 'nullable|date',
-        'received_from_rd' => 'nullable|date',
+        'process' => 'nullable|date',
+        'budget_accounting' => 'nullable|date',
+        'accounting' => 'nullable|date',
+        'status' => 'nullable|string|max:255',
+
     ]);
 
     // Check if a record already exists for this tupad_id
     $paper = TupadPaper::where('tupad_id', $request->tupad_id)->first();
 
     if ($paper) {
-        // Update existing record
+        // Update existing record (preserve existing status)
         $paper->update($request->all());
     } else {
-        // Create a new record
-        $paper = TupadPaper::create($request->all());
+        // Create a new record with status always set to 'Pending'
+        $paper = TupadPaper::create(array_merge($request->all(), ['status' => 'Pending']));
     }
-
     // Check if all fields in TupadPaper are filled
     if (
+        !empty($paper->tssd) &&
         !empty($paper->budget) &&
-        !empty($paper->received_from_budget) &&
-        !empty($paper->tssd_sir_jv) &&
-        !empty($paper->received_from_tssd_sir_jv) &&
-        !empty($paper->rd) &&
-        !empty($paper->received_from_rd)
+        !empty($paper->imsd_chief) &&
+        !empty($paper->ard) &&
+        !empty($paper->rd)
     ) {
         // Update status in Tupad table
         $tupad = Tupad::find($request->tupad_id);

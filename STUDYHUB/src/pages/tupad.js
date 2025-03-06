@@ -14,6 +14,8 @@ import {
 } from '@mui/material';
 import PropTypes from 'prop-types';
 import TablePagination from '@mui/material/TablePagination';
+import Pagination from '@mui/material/Pagination';
+import PaginationItem from '@mui/material/PaginationItem';
 import Collapse from '@mui/material/Collapse';
 import IconButton from '@mui/material/IconButton';
 import Table from '@mui/material/Table';
@@ -30,6 +32,7 @@ import { IoIosAddCircleOutline, IoIosTrash} from "react-icons/io";
 import { MdOutlineFileDownload } from "react-icons/md";
 import { CiSearch } from "react-icons/ci";
 import { BsExclamation } from "react-icons/bs";
+import Swal from "sweetalert2";
 import API_URL from './api';
 
 const Tupad = () => {
@@ -64,6 +67,8 @@ const Tupad = () => {
   const [openRows, setOpenRows] = useState({});
   const [selectedTupadsId, setSelectedTupadsId] = useState(null);
   const [statuses, setStatuses] = useState([]);
+  const [pageModal, setPageModal] = useState(1);
+  const ITEMS_PER_PAGE = 5;
   const formatDateTime = (dateString) => {
     return dateString ? new Date(dateString).toISOString().slice(0, 16) : "mm/dd/yyyy";
   };
@@ -77,6 +82,12 @@ const Tupad = () => {
     );
   };
 
+  const isNextDisabled = () => {
+    const requiredFields = ["TSSD", "Budget", "IMSD Chief for Appraisal Signature", "ARD for Appraisal Signature", "RD Approval and WP Signature"];
+    return statuses.some(status => requiredFields.includes(status.name) && !status.date);
+  };
+  
+
 
   const formatDate = (date) => {
     return date && date !== "mm/dd/yyyy" ? date : null;
@@ -86,12 +97,15 @@ const Tupad = () => {
     try {
         const payload = {
             tupad_id: selectedTupadsId,
+            tssd: formatDate(statuses.find(s => s.name === "TSSD")?.date),
             budget: formatDate(statuses.find(s => s.name === "Budget")?.date),
-            received_from_budget: formatDate(statuses.find(s => s.name === "Received from Budget")?.date),
-            tssd_sir_jv: formatDate(statuses.find(s => s.name === "TSSD Sir JV")?.date),
-            received_from_tssd_sir_jv: formatDate(statuses.find(s => s.name === "Received from TSSD Sir JV")?.date),
-            rd: formatDate(statuses.find(s => s.name === "RD")?.date),
-            received_from_rd: formatDate(statuses.find(s => s.name === "Received from RD")?.date),
+            imsd_chief: formatDate(statuses.find(s => s.name === "IMSD Chief for Appraisal Signature")?.date),
+            ard: formatDate(statuses.find(s => s.name === "ARD for Appraisal Signature")?.date),
+            rd: formatDate(statuses.find(s => s.name === "RD Approval and WP Signature")?.date),
+            process: formatDate(statuses.find(s => s.name === "Process to Budget")?.date),
+            budget_accounting: formatDate(statuses.find(s => s.name === "Budget to Accounting")?.date),
+            accounting: formatDate(statuses.find(s => s.name === "Accounting to Cashier")?.date),
+            status: 'Pending',
         };
 
         console.log("Sending Payload:", payload);
@@ -385,8 +399,6 @@ const handleAddNewEntry = () => {
   }
   setModalOpen(false);
 };
-
-
   
 
   function Row(props) {
@@ -404,23 +416,47 @@ const handleAddNewEntry = () => {
       }
     };
 
+    const formatDateExclamation = (dateString) => {
+      const options = { year: "numeric", month: "long", day: "2-digit" };
+      return new Date(dateString).toLocaleDateString("en-US", options);
+    };
     
+    const handleExclamationClick = (commited_date) => {
+      Swal.fire({
+        icon: "warning",
+        title: "Unpaid Commitment",
+        text: `The committed date is unpaid.\nCommitted Date: ${formatDateExclamation(commited_date)}`,
+        confirmButtonText: "OK",
+        confirmButtonColor: "#d33",
+      });
+    };
+
 
     return (
       <>    
        <TableRow sx={{ '& > *': { borderBottom: 'unset' } }}>
        <TableCell>
-  <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: "50px" }}>
-    <span style={{ width: "24px", textAlign: "center" }}>
-      {row.commited_status.toLowerCase() === "unpaid" && (
-        <BsExclamation style={{ color: "red", fontSize: "1.7rem" }} />
-      )}
-    </span>
-    <IconButton aria-label="expand row" size="small" onClick={() => setOpen(!open)}>
-      {open ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
-    </IconButton>
-  </div>
-</TableCell>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: "50px" }}>
+            <span style={{ width: "24px", textAlign: "center" }}>
+              {row.commited_status.toLowerCase() === "unpaid" && (
+                <BsExclamation
+                  style={{
+                    color: "red",
+                    fontSize: "1.5rem",
+                    cursor: "pointer",
+                    animation: "swing 0.8s ease-in-out infinite",
+                    display: "inline-block",
+                  }}
+                  onClick={() => handleExclamationClick(row.commited_date)}
+                />
+              )}
+            </span>
+            <IconButton aria-label="expand row" size="small" onClick={() => setOpen(!open)}>
+              {open ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
+            </IconButton>
+          </div>
+        </TableCell>
+
 
           <TableCell component="th" scope="row">{row.project_title}</TableCell>  
           <TableCell align="center">{row.seriesNo}</TableCell>
@@ -499,12 +535,14 @@ const handleAddNewEntry = () => {
 
                              
                               setStatuses([
+                                { name: "TSSD", date: formatDateTime(data.tssd) || "" },
                                 { name: "Budget", date: formatDateTime(data.budget) || "" },
-                                { name: "Received from Budget", date: formatDateTime(data.received_from_budget) || "" },
-                                { name: "TSSD Sir JV", date: formatDateTime(data.tssd_sir_jv) || "" },
-                                { name: "Received from TSSD Sir JV", date: formatDateTime(data.received_from_tssd_sir_jv) || "" },
-                                { name: "RD", date: formatDateTime(data.rd) || "" },
-                                { name: "Received from RD", date: formatDateTime(data.received_from_rd) || "" },
+                                { name: "IMSD Chief for Appraisal Signature", date: formatDateTime(data.imsd_chief) || "" },
+                                { name: "ARD for Appraisal Signature", date: formatDateTime(data.ard) || "" },
+                                { name: "RD Approval and WP Signature", date: formatDateTime(data.rd) || "" },
+                                { name: "Process to Budget", date: formatDateTime(data.process) || "" },
+                                { name: "Budget to Accounting", date: formatDateTime(data.budget_accounting) || "" },
+                                { name: "Accounting to Cashier", date: formatDateTime(data.accounting) || "" },
                               ]);
 
                               setSelectedTupadsId(row.id); 
@@ -751,62 +789,83 @@ const handleAddNewEntry = () => {
       {/* STATUS MODAL */}
 
       <Modal open={statusOpen} onClose={() => setStatusOpen(false)} >
-      <Box
-        sx={{
-          position: "absolute",
-          top: "50%",
-          left: "50%",
-          transform: "translate(-50%, -50%)",
-          width: 900,
-          bgcolor: "background.paper",
-          boxShadow: 24,
-          p: 4,
-          borderRadius: 2,
-        }}
-      >
-        <Typography variant="h6" sx={{ mb: 2 }}>
-          Paper Status
-        </Typography>
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell><strong>Paper Status</strong></TableCell>
-                <TableCell><strong>Date Received</strong></TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-  {statuses.length > 0 ? (
-    statuses.map((status, index) => (
-      <TableRow key={index}>
-        <TableCell>{status.name || "No Name"}</TableCell>
-        <TableCell>
-        <TextField
-  type="datetime-local"
-  variant="outlined"
-  size="small"
-  fullWidth
-  value={status.date || ""}
-  onChange={(e) => handleDateChange(status.name, e.target.value)}
+  <Box
+    sx={{
+      position: "absolute",
+      top: "50%",
+      left: "50%",
+      transform: "translate(-50%, -50%)",
+      width: 900,
+      bgcolor: "background.paper",
+      boxShadow: 24,
+      p: 4,
+      borderRadius: 2,
+    }}
+  >
+    <Typography variant="h6" sx={{ mb: 2 }}>
+      Paper Status
+    </Typography>
 
-/>
+    <TableContainer component={Paper}>
+      <Table>
+        <TableHead>
+          <TableRow>
+            <TableCell><strong>Paper Status</strong></TableCell>
+            <TableCell><strong>Date Received</strong></TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {statuses.length > 0 ? (
+            statuses
+              .slice((pageModal - 1) * ITEMS_PER_PAGE, pageModal * ITEMS_PER_PAGE)
+              .map((status, index) => (
+                <TableRow key={index}>
+                  <TableCell>{status.name || "No Name"}</TableCell>
+                  <TableCell>
+                    <TextField
+                      type="datetime-local"
+                      variant="outlined"
+                      size="small"
+                      fullWidth
+                      value={status.date || ""}
+                      onChange={(e) => handleDateChange(status.name, e.target.value)}
+                    />
+                  </TableCell>
+                </TableRow>
+              ))
+          ) : (
+            <TableRow>
+              <TableCell colSpan={2} align="center">
+                No data available
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
+    </TableContainer>
 
-        </TableCell>
-      </TableRow>
-    ))
-  ) : (
-    <TableRow>
-      <TableCell colSpan={2} align="center">
-        No data available
-      </TableCell>
-    </TableRow>
+    {/* Pagination Controls */}
+    {statuses.length > ITEMS_PER_PAGE && (
+      <Pagination
+  count={Math.ceil(statuses.length / ITEMS_PER_PAGE)}
+  page={pageModal}
+  onChange={(event, value) => {
+    if (!isNextDisabled() || value < pageModal) {
+      setPageModal(value); // Allow only backward movement if fields are empty
+    }
+  }}
+  renderItem={(item) => (
+    <PaginationItem
+      {...item}
+      disabled={isNextDisabled() && item.type === "next"} // Disable "Next" if fields are missing
+    />
   )}
-</TableBody>
+  sx={{ mt: 2, display: "flex", justifyContent: "center" }}
+/>
+)};
 
-          </Table>
-        </TableContainer>
-        
-        <Button
+    {/* Save Button */}
+    <Button
       sx={{ mt: 2, display: "block", marginLeft: "auto" }}
       variant="contained"
       color="primary"
@@ -815,17 +874,17 @@ const handleAddNewEntry = () => {
       Save
     </Button>
 
-        {/* Close Button */}
-        <Button
-          onClick={() => setStatusOpen(false)}
-          sx={{ mt: 1, display: "block", marginLeft: "auto" }}
-          variant="outlined"
-          color="secondary"
-        >
-          Close
-        </Button>
-      </Box>
-    </Modal>
+    {/* Close Button */}
+    <Button
+      onClick={() => setStatusOpen(false)}
+      sx={{ mt: 1, display: "block", marginLeft: "auto" }}
+      variant="outlined"
+      color="secondary"
+    >
+      Close
+    </Button>
+  </Box>
+</Modal>
 
     <h1>Tupad</h1>
 

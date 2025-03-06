@@ -1,61 +1,109 @@
-import React, { useState } from "react";
-import { ComposableMap, Geographies, Geography } from "react-simple-maps";
-import { DateTime } from "luxon";
-
-const geoUrl = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
+import React, { useEffect, useState } from "react";
 
 const Members = () => {
-  const [selectedTimezone, setSelectedTimezone] = useState("UTC");
-  const [currentTime, setCurrentTime] = useState(DateTime.now().setZone("UTC").toISO());
+  const [scriptsLoaded, setScriptsLoaded] = useState(false);
 
-  const handleRegionClick = (regionName) => {
-    const timezoneMapping = {
-      China: "Asia/Shanghai",
-      India: "Asia/Kolkata",
-      "United States": "America/New_York",
-      "United Kingdom": "Europe/London",
+  useEffect(() => {
+    const loadScript = (src) => {
+      return new Promise((resolve, reject) => {
+        if (document.querySelector(`script[src="${src}"]`)) {
+          resolve();
+          return;
+        }
+
+        const script = document.createElement("script");
+        script.src = src;
+        script.async = true;
+        script.onload = resolve;
+        script.onerror = () => reject(new Error(`Failed to load ${src}`));
+        document.body.appendChild(script);
+      });
     };
 
-    const timezone = timezoneMapping[regionName] || "UTC";
+    const loadHighcharts = async () => {
+      try {
+        await loadScript("https://code.highcharts.com/maps/highmaps.js");
+        
+        if (window.Highcharts && window.Highcharts.AST) {
+          await loadScript("https://code.highcharts.com/modules/exporting.js");
+        }
 
-    setSelectedTimezone(`${regionName} (${timezone})`);
-    setCurrentTime(DateTime.now().setZone(timezone).toISO());
-  };
+        setScriptsLoaded(true);
+      } catch (error) {
+        console.error("Error loading Highcharts scripts:", error);
+      }
+    };
+
+    loadHighcharts();
+  }, []);
+
+  useEffect(() => {
+    const loadMap = async () => {
+      if (!scriptsLoaded || !window.Highcharts) return;
+
+      try {
+        const response = await fetch(
+          "https://code.highcharts.com/mapdata/countries/ph/ph-all.topo.json"
+        );
+
+        if (!response.ok) throw new Error("Failed to fetch map data");
+
+        const mapData = await response.json();
+
+        const mindanaoRegions = [
+          ["ph-zs", 1], ["ph-zn", 2], ["ph-zm", 3], ["ph-ls", 4], ["ph-ln", 5],
+          ["ph-bk", 6], ["ph-ms", 7], ["ph-mr", 8], ["ph-cm", 9], ["ph-ds", 10],
+          ["ph-dn", 11], ["ph-do", 12], ["ph-dv", 13], ["ph-sk", 14], ["ph-ss", 15],
+          ["ph-cg", 16], ["ph-su", 17], ["ph-sm", 18], ["ph-ag", 19], ["ph-as", 20],
+          ["ph-md", 21], ["ph-ta", 22], ["ph-bs", 23], ["ph-sg", 24]
+        ];
+
+        window.Highcharts.mapChart("container", {
+          chart: {
+            map: mapData,
+          },
+          title: {
+            text: "Mindanao Map",
+          },
+          subtitle: {
+            text: "Showing only Mindanao regions",
+          },
+          mapNavigation: {
+            enabled: true,
+            buttonOptions: {
+              verticalAlign: "bottom",
+            },
+          },
+          colorAxis: {
+            min: 0,
+          },
+          series: [
+            {
+              data: mindanaoRegions,
+              name: "Mindanao Regions",
+              states: {
+                hover: {
+                  color: "#BADA55",
+                },
+              },
+              dataLabels: {
+                enabled: true,
+                format: "{point.name}",
+              },
+            },
+          ],
+        });
+      } catch (error) {
+        console.error("Error initializing Highcharts map:", error);
+      }
+    };
+
+    loadMap();
+  }, [scriptsLoaded]);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "20px" }}>
-      {/* Timezone Details */}
-      <div>
-        <h2>Selected Timezone: {selectedTimezone}</h2>
-        <p>
-          Current Time:{" "}
-          {DateTime.fromISO(currentTime).toLocaleString(DateTime.DATETIME_MED_WITH_SECONDS)}
-        </p>
-      </div>
-
-      {/* World Map */}
-      <ComposableMap
-        projection="geoMercator"
-        projectionConfig={{ scale: 150 }}
-        style={{ width: "800px", height: "auto" }}
-      >
-        <Geographies geography={geoUrl}>
-          {({ geographies }) =>
-            geographies.map((geo) => (
-              <Geography
-                key={geo.rsmKey}
-                geography={geo}
-                onClick={() => handleRegionClick(geo.properties.NAME)}
-                style={{
-                  default: { fill: "#D6D6DA", outline: "none" },
-                  hover: { fill: "#F53", outline: "none" },
-                  pressed: { fill: "#E42", outline: "none" },
-                }}
-              />
-            ))
-          }
-        </Geographies>
-      </ComposableMap>
+    <div className="members-container">
+      <div id="container" style={{ height: "80vh", width: "100%" }} />
     </div>
   );
 };

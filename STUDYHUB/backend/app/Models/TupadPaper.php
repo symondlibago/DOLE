@@ -11,12 +11,15 @@ class TupadPaper extends Model
 
     protected $fillable = [
         'tupad_id',
+        'tssd',
         'budget',
-        'received_from_budget',
-        'tssd_sir_jv',
-        'received_from_tssd_sir_jv',
+        'imsd_chief',
+        'ard',
         'rd',
-        'received_from_rd',
+        'process',
+        'budget_accounting',
+        'accounting',
+        'status',
     ];
 
     public function tupad()

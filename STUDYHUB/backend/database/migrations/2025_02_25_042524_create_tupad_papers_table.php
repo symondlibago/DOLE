@@ -10,12 +10,15 @@ return new class extends Migration {
         Schema::create('tupad_papers', function (Blueprint $table) {
             $table->id();
             $table->foreignId('tupad_id')->constrained('tupads')->onDelete('cascade'); // Foreign key fix
+            $table->date('tssd')->nullable();
             $table->date('budget')->nullable(); // Changed from dateTime to date
-            $table->date('received_from_budget')->nullable();
-            $table->date('tssd_sir_jv')->nullable();
-            $table->date('received_from_tssd_sir_jv')->nullable();
+            $table->date('imsd_chief')->nullable();
+            $table->date('ard')->nullable();
             $table->date('rd')->nullable();
-            $table->date('received_from_rd')->nullable();
+            $table->date('process')->nullable();
+            $table->date('budget_accounting')->nullable();
+            $table->date('accounting')->nullable();
+            $table->string('status');
             $table->timestamps();
         });
     }
