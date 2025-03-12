@@ -34,7 +34,9 @@ import { CiSearch } from "react-icons/ci";
 import { BsExclamation } from "react-icons/bs";
 import Swal from "sweetalert2";
 import API_URL from './api';
-
+import { IoClose } from "react-icons/io5"; 
+import { FaRegEdit } from "react-icons/fa";
+import { PiInfoLight } from "react-icons/pi";
 const Tupad = () => {
   const [rows, setRows] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
@@ -105,7 +107,7 @@ const Tupad = () => {
             process: formatDate(statuses.find(s => s.name === "Process to Budget")?.date),
             budget_accounting: formatDate(statuses.find(s => s.name === "Budget to Accounting")?.date),
             accounting: formatDate(statuses.find(s => s.name === "Accounting to Cashier")?.date),
-            status: 'Pending',
+            status: "Pending",
         };
 
         console.log("Sending Payload:", payload);
@@ -114,12 +116,25 @@ const Tupad = () => {
 
         console.log(response.data.message, response.data.data);
 
+        Swal.fire({
+            icon: "success",
+            title: "Saved Successfully!",
+            text: "Your data has been saved.",
+            timer: 2000,
+            showConfirmButton: false,
+        });
+
         setStatusOpen(false);
+        fetchTupadData(); // Refresh data after saving
     } catch (error) {
         console.error("Error saving data:", error.response?.data || error.message);
-    }
-    fetchTupadData();
 
+        Swal.fire({
+            icon: "error",
+            title: "Save Failed",
+            text: error.response?.data?.message || "An error occurred while saving.",
+        });
+    }
 };
 
   
@@ -127,7 +142,7 @@ const filteredRows = rows.filter(row =>
   (row.seriesNo && row.seriesNo.toLowerCase().includes(searchQuery.toLowerCase())) ||
   (Array.isArray(row.adlNo) && row.adlNo.some(adl => 
     String(adl).toLowerCase().includes(searchQuery.toLowerCase())
-  )) || 
+  )) || (row.project_title && row.project_title.toLowerCase().includes(searchQuery.toLowerCase())) ||
   (row.pfo && row.pfo.toLowerCase().includes(searchQuery.toLowerCase())) ||
   (Array.isArray(row.history) && row.history.some(historyRow => 
     historyRow.dateReceived && historyRow.dateReceived.toLowerCase().includes(searchQuery.toLowerCase())
@@ -341,7 +356,6 @@ const handleAddNewEntry = () => {
     ? `TUPAD${newEntry.pfo}-${new Date().getFullYear()}-${newEntry.seriesNo}`
     : '';
 
- 
   const formattedAdlNos = adlNumbers.map(adl => 
     adl.startsWith(`ADL-${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-`) 
       ? adl 
@@ -368,7 +382,6 @@ const handleAddNewEntry = () => {
   };
 
   if (selectedEntry) {
-    
     axios.put(`http://localhost:8000/api/tupads/${selectedEntry.id}`, payload)
       .then((response) => {
         console.log('Entry updated successfully:', response.data);
@@ -381,40 +394,89 @@ const handleAddNewEntry = () => {
           )
         );
 
+        Swal.fire({
+          icon: "success",
+          title: "Updated Successfully!",
+          text: "The entry has been updated.",
+          timer: 2000,
+          showConfirmButton: false
+        });
+
         setSelectedEntry(null);
         fetchTupadData();
       })
-      .catch((error) => console.error('Error updating entry:', error.response?.data || error.message));
+      .catch((error) => {
+        console.error('Error updating entry:', error.response?.data || error.message);
 
+        Swal.fire({
+          icon: "error",
+          title: "Update Failed",
+          text: error.response?.data?.message || "An error occurred while updating.",
+        });
+      });
   } else {
-    
     axios.post(`http://localhost:8000/api/tupads`, payload)
       .then((response) => {
         console.log('Entry created successfully:', response.data);
 
         setRows((prevRows) => [...prevRows, response.data.data]);
-        fetchTupadData(); 
+        fetchTupadData();
+
+        Swal.fire({
+          icon: "success",
+          title: "Added Successfully!",
+          text: "The new entry has been created.",
+          timer: 2000,
+          showConfirmButton: false
+        });
+
       })
-      .catch((error) => console.error('Error creating entry:', error.response?.data || error.message));
+      .catch((error) => {
+        console.error('Error creating entry:', error.response?.data || error.message);
+
+        Swal.fire({
+          icon: "error",
+          title: "Creation Failed",
+          text: error.response?.data?.message || "An error occurred while adding the entry.",
+        });
+      });
   }
+  
   setModalOpen(false);
 };
-  
+
+const getStatusColor = (status) => {
+  switch (status) {
+    case "Implemented":
+    case "Received":
+      return "#28A745"; 
+    case "Unpaid":
+      return "#DC3545"; 
+    case "Pending":
+      return "#FFC107"; 
+    case "Late Received":
+      return "#FD7E14"; 
+    default:
+      return "#6C757D"; 
+  }
+};
+
+
+const handleStatusClick = (row) => {
+  Swal.fire({
+    title: "Work Program Status",
+    html: `
+      <p><strong>Status:</strong> <span style="color: ${getStatusColor(row.status)}; font-weight: bold;">${row.status}</span></p>
+      <p><strong>Committed Status:</strong> <span style="color: ${getStatusColor(row.commited_status)}; font-weight: bold;">${row.commited_status}</span></p>
+    `,
+    icon: "info",
+    confirmButtonText: "OK",
+  });
+};
 
   function Row(props) {
     const { row } = props;
     const [open, setOpen] = useState(false);
-
-    const getStatusColor = (status) => {
-      switch (status.toLowerCase()) {
-        case 'implemented':
-          return '#4CAF50'; 
-        case 'pending':
-          return '#FF9800'; 
-        default:
-          return 'black';
-      }
-    };
 
     const formatDateExclamation = (dateString) => {
       const options = { year: "numeric", month: "long", day: "2-digit" };
@@ -466,18 +528,25 @@ const handleAddNewEntry = () => {
           <TableCell align="center">{row.pfo}</TableCell>
           <TableCell align="center">{row.beneficiaries}</TableCell>
           <TableCell align="center">{row.actual}</TableCell>
-          <TableCell align="center" sx={{ fontWeight: 'bold', color: getStatusColor(row.status) }}>
-            {row.status}
+          <TableCell align="center">
+          <IconButton onClick={() => handleStatusClick(row)} sx={{ color: "#003366" }}>
+            <PiInfoLight size={24} />
+          </IconButton>
           </TableCell>
           <TableCell align="center">
-        <Button
-          variant="contained"
-          color="primary"
-          size="small"
-          onClick={() => handleEditEntry(row)} 
-        >
-          Edit
-        </Button>
+          <Button
+            variant="text" // Removes background color
+            size="small"
+            onClick={() => handleEditEntry(row)}
+            sx={{
+              minWidth: "auto",
+              p: 1,
+              backgroundColor: "transparent", // Ensures background is fully transparent
+              "&:hover": { backgroundColor: "rgba(0, 0, 0, 0.05)" }, // Light hover effect
+            }}
+          >
+            <FaRegEdit size={20} color="black" />
+          </Button>
       </TableCell>
 
         </TableRow>
@@ -596,22 +665,34 @@ const handleAddNewEntry = () => {
 
     {/* INSERTING AND UPDATING MODAL */}
     <Modal open={modalOpen} onClose={() => setModalOpen(false)}>
-  <Box
-    sx={{
-      position: "absolute",
-      top: "50%",
-      left: "50%",
-      transform: "translate(-50%, -50%)",
-      width: "80%",
-      bgcolor: "background.paper",
-      boxShadow: 24,
-      p: 4,
-      borderRadius: 2,
-    }}
-  >
+    <Box
+  sx={{
+    position: "absolute",
+    top: "50%",
+    left: "50%",
+    transform: "translate(-50%, -50%)",
+    width: "80%",
+    bgcolor: "background.paper",
+    boxShadow: 24,
+    p: 4,
+    borderRadius: 2,
+  }}
+>
+  {/* Header with Title and Close Button */}
+  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
     <Typography variant="h6" gutterBottom>
       {selectedEntry ? "Edit WP" : "Insert New WP"}
     </Typography>
+    <IconButton 
+      onClick={() => setModalOpen(false)} 
+      sx={{ color: "red" }} // Set button color to red
+    >
+      <IoClose size={24} />
+    </IconButton>
+
+  </Box>
+
+
 
     <Box
       sx={{
@@ -649,37 +730,42 @@ const handleAddNewEntry = () => {
         />
       </Box>
 
-      <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-        {adlNumbers.map((adl, index) => (
-          <Box key={index} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <TextField
-              fullWidth
-              label={`ADL Number ${index + 1}`}
-              value={adlNumbers[index]}
-              onChange={(e) => {
-                const updatedAdlNumbers = [...adlNumbers];
-                updatedAdlNumbers[index] = e.target.value;
-                setAdlNumbers(updatedAdlNumbers);
-              }}
-            />
-            {adlNumbers.length > 1 && (
-              <IconButton
-                onClick={() => {
-                  const updatedAdlNumbers = adlNumbers.filter((_, i) => i !== index);
-                  setAdlNumbers(updatedAdlNumbers);
-                }}
-              >
-                <IoIosTrash color="red" />
-              </IconButton>
-            )}
-            {index === adlNumbers.length - 1 && (
-              <IconButton onClick={() => setAdlNumbers([...adlNumbers, ""])}>
-                <IoIosAddCircleOutline color="green" />
-              </IconButton>
-            )}
-          </Box>
-        ))}
-      </Box>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+  {adlNumbers.map((adl, index) => (
+    <Box
+      key={index}
+      sx={{
+        display: "flex",
+        alignItems: "center",
+        gap: 1,
+      }}
+    >
+      <TextField
+        label={`ADL Number ${index + 1}`}
+        value={adlNumbers[index]}
+        onChange={(e) => {
+          const updatedAdlNumbers = [...adlNumbers];
+          updatedAdlNumbers[index] = e.target.value;
+          setAdlNumbers(updatedAdlNumbers);
+        }}
+      />
+      {adlNumbers.length > 1 && (
+        <IconButton
+          onClick={() => {
+            const updatedAdlNumbers = adlNumbers.filter((_, i) => i !== index);
+            setAdlNumbers(updatedAdlNumbers);
+          }}
+        >
+          <IoIosTrash color="red" />
+        </IconButton>
+      )}
+    </Box>
+  ))}
+  <IconButton onClick={() => setAdlNumbers([...adlNumbers, ""])}>
+    <IoIosAddCircleOutline color="green" />
+  </IconButton>
+</Box>
+
 
       <TextField
         fullWidth
@@ -773,14 +859,16 @@ const handleAddNewEntry = () => {
         type="number"
       />
     </Box>
-    <Button
-      fullWidth
-      variant="contained"
-      sx={{ marginTop: 3 }}
-      onClick={handleAddNewEntry}
-    >
-      Save
-    </Button>
+    <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 3 }}>
+  <Button
+    variant="contained"
+    sx={{ ml: "auto" }}
+    onClick={handleAddNewEntry}
+  >
+    Save
+  </Button>
+</Box>
+
   </Box>
 </Modal>
 
@@ -788,7 +876,7 @@ const handleAddNewEntry = () => {
 
       {/* STATUS MODAL */}
 
-      <Modal open={statusOpen} onClose={() => setStatusOpen(false)} >
+      <Modal open={statusOpen} onClose={() => setStatusOpen(false)}>
   <Box
     sx={{
       position: "absolute",
@@ -796,17 +884,29 @@ const handleAddNewEntry = () => {
       left: "50%",
       transform: "translate(-50%, -50%)",
       width: 900,
+      height: 580,
       bgcolor: "background.paper",
       boxShadow: 24,
       p: 4,
       borderRadius: 2,
+      display: "flex",
+      flexDirection: "column",
     }}
   >
-    <Typography variant="h6" sx={{ mb: 2 }}>
-      Paper Status
-    </Typography>
+    {/* Header with Close Button */}
+    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
+      <Typography variant="h6" gutterBottom>Implementation Status</Typography>
+      <IconButton 
+        onClick={() => setStatusOpen(false)} 
+        sx={{ color: "red" }} // Set button color to red
+      >
+        <IoClose size={24} />
+</IconButton>
 
-    <TableContainer component={Paper}>
+    </Box>
+
+    {/* Table Container */}
+    <TableContainer component={Paper} sx={{ flex: 1, overflow: "auto" }}>
       <Table>
         <TableHead>
           <TableRow>
@@ -835,58 +935,57 @@ const handleAddNewEntry = () => {
               ))
           ) : (
             <TableRow>
-              <TableCell colSpan={2} align="center">
-                No data available
-              </TableCell>
+              <TableCell colSpan={2} align="center">No data available</TableCell>
             </TableRow>
           )}
         </TableBody>
       </Table>
     </TableContainer>
 
-    {/* Pagination Controls */}
+    {/* Footer with Pagination & Save Button */}
     {statuses.length > ITEMS_PER_PAGE && (
-      <Pagination
-  count={Math.ceil(statuses.length / ITEMS_PER_PAGE)}
-  page={pageModal}
-  onChange={(event, value) => {
-    if (!isNextDisabled() || value < pageModal) {
-      setPageModal(value); // Allow only backward movement if fields are empty
-    }
-  }}
-  renderItem={(item) => (
-    <PaginationItem
-      {...item}
-      disabled={isNextDisabled() && item.type === "next"} // Disable "Next" if fields are missing
-    />
-  )}
-  sx={{ mt: 2, display: "flex", justifyContent: "center" }}
-/>
-)};
+      <Box
+        sx={{
+          position: "absolute",
+          bottom: 0,
+          left: 0,
+          width: "100%",
+          bgcolor: "background.paper",
+          p: 2,
+          display: "flex",
+          alignItems: "center",
+        }}
+      >
+        {/* Pagination - Centered */}
+        <Box sx={{ flex: 1, display: "flex" }}>
+          <Pagination
+            count={Math.ceil(statuses.length / ITEMS_PER_PAGE)}
+            page={pageModal}
+            onChange={(event, value) => {
+              if (!isNextDisabled() || value < pageModal) {
+                setPageModal(value); // Allow only backward movement if fields are empty
+              }
+            }}
+            renderItem={(item) => (
+              <PaginationItem
+                {...item}
+                disabled={isNextDisabled() && item.type === "next"} // Disable "Next" if fields are missing
+              />
+            )}
+          />
+        </Box>
 
-    {/* Save Button */}
-    <Button
-      sx={{ mt: 2, display: "block", marginLeft: "auto" }}
-      variant="contained"
-      color="primary"
-      onClick={handleSave}
-    >
-      Save
-    </Button>
-
-    {/* Close Button */}
-    <Button
-      onClick={() => setStatusOpen(false)}
-      sx={{ mt: 1, display: "block", marginLeft: "auto" }}
-      variant="outlined"
-      color="secondary"
-    >
-      Close
-    </Button>
+        {/* Save Button - Aligned to the Right */}
+        <Button variant="contained" color="primary" onClick={handleSave}>
+          Save
+        </Button>
+      </Box>
+    )}
   </Box>
 </Modal>
 
-    <h1>Tupad</h1>
+
+    <h1>TUPAD</h1>
 
     <Box 
       sx={{ 
@@ -904,7 +1003,7 @@ const handleAddNewEntry = () => {
     setModalOpen(true);  // Then open the modal
   }}
   sx={{ 
-    width: "280px",
+    width: "250px",
     height: "50px",  
     fontSize: "1rem",  
     backgroundColor: "#003366", 
@@ -977,43 +1076,42 @@ const handleAddNewEntry = () => {
 
     {/* Pagination and Export Buttons */}
     <Box 
-      sx={{ 
-        display: "flex", 
-        justifyContent: "space-between", 
-        alignItems: "center",
-        width: "100%", 
-        marginTop: "10px"
-      }}
-    >
-      {/* Pagination Component */}
-      <TablePagination
-        component="div"
-        count={rows.length}
-        page={page}
-        onPageChange={handleChangePage}
-        rowsPerPage={rowsPerPage}
-        onRowsPerPageChange={handleChangeRowsPerPage}
-        rowsPerPageOptions={[5, 10, 20, 50, 100]}
-      />
+  sx={{ 
+    display: "flex", 
+    justifyContent: "space-between", 
+    alignItems: "center",
+    width: "100%", 
+    marginTop: "10px"
+  }}
+>
+  {/* Pagination Component */}
+  <TablePagination
+    component="div"
+    count={rows.length}
+    page={page}
+    onPageChange={handleChangePage}
+    rowsPerPage={rowsPerPage}
+    onRowsPerPageChange={handleChangeRowsPerPage}
+    rowsPerPageOptions={[5, 10, 20, 50, 100]}
+  />
 
-    </Box>
-    <Box sx={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
-    {/* Export Button */}
-    <Button
-      variant="contained"
-      onClick={handleClick}
-      startIcon={<MdOutlineFileDownload />}
-      sx={{ backgroundColor: "#003366", color: "white", "&:hover": { backgroundColor: "#002244" } }}
-    >
-      Export
-    </Button>
+  {/* Export Button */}
+  <Button
+    variant="contained"
+    onClick={handleClick}
+    startIcon={<MdOutlineFileDownload />}
+    sx={{ backgroundColor: "#003366", color: "white", "&:hover": { backgroundColor: "#002244" } }}
+  >
+    Export
+  </Button>
 
-    {/* Dropdown Menu */}
-    <Menu anchorEl={anchorEl} open={open} onClose={handleClose}>
-      <MenuItem onClick={() => { handleExport(); handleClose(); }}>Download CSV</MenuItem>
-      <MenuItem onClick={() => { handlePrint(); handleClose(); }}>Print</MenuItem>
-    </Menu>
-  </Box>
+  {/* Dropdown Menu */}
+  <Menu anchorEl={anchorEl} open={open} onClose={handleClose}>
+    <MenuItem onClick={() => { handleExport(); handleClose(); }}>Download CSV</MenuItem>
+    <MenuItem onClick={() => { handlePrint(); handleClose(); }}>Print</MenuItem>
+  </Menu>
+</Box>
+
 
 
   </div>
