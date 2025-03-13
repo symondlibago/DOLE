@@ -107,7 +107,7 @@ const Tupad = () => {
             process: formatDate(statuses.find(s => s.name === "Process to Budget")?.date),
             budget_accounting: formatDate(statuses.find(s => s.name === "Budget to Accounting")?.date),
             accounting: formatDate(statuses.find(s => s.name === "Accounting to Cashier")?.date),
-            status: "Pending",
+            payment_status: "Pending",
         };
 
         console.log("Sending Payload:", payload);
@@ -141,13 +141,18 @@ const Tupad = () => {
 const filteredRows = rows.filter(row =>
   (row.seriesNo && row.seriesNo.toLowerCase().includes(searchQuery.toLowerCase())) ||
   (Array.isArray(row.adlNo) && row.adlNo.some(adl => 
-    String(adl).toLowerCase().includes(searchQuery.toLowerCase())
-  )) || (row.project_title && row.project_title.toLowerCase().includes(searchQuery.toLowerCase())) ||
+    String(adl).toLowerCase().includes(searchQuery.toLowerCase()))
+  ) ||
+  (row.project_title && row.project_title.toLowerCase().includes(searchQuery.toLowerCase())) ||
+  (row.commited_status && row.commited_status.toLowerCase().includes(searchQuery.toLowerCase())) ||
   (row.pfo && row.pfo.toLowerCase().includes(searchQuery.toLowerCase())) ||
+  (row.status && row.status.toLowerCase().includes(searchQuery.toLowerCase())) ||
   (Array.isArray(row.history) && row.history.some(historyRow => 
     historyRow.dateReceived && historyRow.dateReceived.toLowerCase().includes(searchQuery.toLowerCase())
-  ))
+  )) ||
+  (row.payment_status && row.payment_status.toLowerCase().includes(searchQuery.toLowerCase())) // Search in payment_status
 );
+
 
 
   const handleClick = (event) => {
@@ -449,6 +454,7 @@ const getStatusColor = (status) => {
   switch (status) {
     case "Implemented":
     case "Received":
+    case "Paid":
       return "#28A745"; 
     case "Unpaid":
       return "#DC3545"; 
@@ -462,17 +468,48 @@ const getStatusColor = (status) => {
 };
 
 
-const handleStatusClick = (row) => {
-  Swal.fire({
-    title: "Work Program Status",
-    html: `
-      <p><strong>Status:</strong> <span style="color: ${getStatusColor(row.status)}; font-weight: bold;">${row.status}</span></p>
-      <p><strong>Committed Status:</strong> <span style="color: ${getStatusColor(row.commited_status)}; font-weight: bold;">${row.commited_status}</span></p>
-    `,
-    icon: "info",
-    confirmButtonText: "OK",
-  });
+const handleStatusClick = async (row) => {
+  try {
+    // Ensure you are using the ID
+    const id = row.id; 
+
+    if (!id) {
+      Swal.fire("Error", "Invalid ID", "error");
+      return;
+    }
+
+    const response = await fetch(`http://localhost:8000/api/tupad/${id}`);
+    const data = await response.json();
+
+    if (!response.ok) {
+      Swal.fire("Error", data.message || "Failed to fetch data", "error");
+      return;
+    }
+
+    Swal.fire({
+      title: "Work Program Status",
+      html: `
+        <p><strong>Status:</strong> 
+          <span style="color: ${getStatusColor(data.status)}; font-weight: bold;">
+          ${data.status || "N/A"}</span>
+        </p>
+        <p><strong>Committed Status:</strong> 
+          <span style="color: ${getStatusColor(data.commited_status)}; font-weight: bold;">
+          ${data.commited_status || "N/A"}</span>
+        </p>
+        <p><strong>Payment Status:</strong> 
+          <span style="color: ${getStatusColor(data.payment_status)}; font-weight: bold;">
+          ${data.payment_status || "N/A"}</span>
+        </p>
+      `,
+      icon: "info",
+      confirmButtonText: "OK",
+    });
+  } catch (error) {
+    Swal.fire("Error", "Failed to load data", "error");
+  }
 };
+
 
   function Row(props) {
     const { row } = props;

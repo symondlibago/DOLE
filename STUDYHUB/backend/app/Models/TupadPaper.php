@@ -19,7 +19,7 @@ class TupadPaper extends Model
         'process',
         'budget_accounting',
         'accounting',
-        'status',
+        'payment_status',
     ];
 
     public function tupad()

@@ -1,7 +1,16 @@
 import React, { useEffect, useState } from "react";
+import axios from "axios";
 
 const Members = () => {
   const [scriptsLoaded, setScriptsLoaded] = useState(false);
+  const [pfoCounts, setPfoCounts] = useState({
+    bukidnon: 0,
+    cdo: 0,
+    camiguin: 0,
+    misor: 0,
+    ldn: 0,
+    misoc: 0,
+  });
 
   useEffect(() => {
     const loadScript = (src) => {
@@ -23,7 +32,7 @@ const Members = () => {
     const loadHighcharts = async () => {
       try {
         await loadScript("https://code.highcharts.com/maps/highmaps.js");
-        
+
         if (window.Highcharts && window.Highcharts.AST) {
           await loadScript("https://code.highcharts.com/modules/exporting.js");
         }
@@ -35,6 +44,44 @@ const Members = () => {
     };
 
     loadHighcharts();
+  }, []);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const response = await axios.get("http://localhost:8000/api/tupads");
+
+        if (!Array.isArray(response.data.data)) {
+          throw new Error("API did not return an array");
+        }
+        const counts = {
+          bukidnon: 0,
+          cdo: 0,
+          camiguin: 0,
+          misor: 0,
+          ldn: 0,
+          misoc: 0,
+        };
+
+        response.data.data.forEach((item) => {
+          const pfo = item.pfo.toLowerCase(); 
+          if (pfo.includes("bukidnon")) counts.bukidnon++;
+          else if (pfo.includes("cdo")) counts.cdo++;
+          else if (pfo.includes("camiguin")) counts.camiguin++;
+          else if (pfo.includes("misor")) counts.misor++;
+          else if (pfo.includes("ldn")) counts.ldn++;
+          else if (pfo.includes("misoc")) counts.misoc++;
+        });
+
+        setPfoCounts(counts);
+        console.log("Updated PFO Counts:", counts);
+
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      }
+    };
+
+    fetchData();
   }, []);
 
   useEffect(() => {
@@ -51,11 +98,12 @@ const Members = () => {
         const mapData = await response.json();
 
         const mindanaoRegions = [
-          ["ph-zs", 1], ["ph-zn", 2], ["ph-zm", 3], ["ph-ls", 4], ["ph-ln", 5],
-          ["ph-bk", 6], ["ph-ms", 7], ["ph-mr", 8], ["ph-cm", 9], ["ph-ds", 10],
-          ["ph-dn", 11], ["ph-do", 12], ["ph-dv", 13], ["ph-sk", 14], ["ph-ss", 15],
-          ["ph-cg", 16], ["ph-su", 17], ["ph-sm", 18], ["ph-ag", 19], ["ph-as", 20],
-          ["ph-md", 21], ["ph-ta", 22], ["ph-bs", 23], ["ph-sg", 24]
+          ["ph-bk", pfoCounts.bukidnon],
+          ["ph-6992", pfoCounts.cdo],
+          ["ph-cm", pfoCounts.camiguin],
+          ["ph-mn", pfoCounts.misor],
+          ["ph-ln", pfoCounts.ldn],
+          ["ph-md", pfoCounts.misoc],
         ];
 
         window.Highcharts.mapChart("container", {
@@ -63,7 +111,7 @@ const Members = () => {
             map: mapData,
           },
           title: {
-            text: "Mindanao Map",
+            text: "Philippines Map",
           },
           subtitle: {
             text: "Showing only Mindanao regions",
@@ -99,7 +147,7 @@ const Members = () => {
     };
 
     loadMap();
-  }, [scriptsLoaded]);
+  }, [scriptsLoaded, pfoCounts]);
 
   return (
     <div className="members-container">

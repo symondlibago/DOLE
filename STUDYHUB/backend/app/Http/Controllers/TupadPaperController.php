@@ -27,8 +27,7 @@ class TupadPaperController extends Controller
         'process' => 'nullable|date',
         'budget_accounting' => 'nullable|date',
         'accounting' => 'nullable|date',
-        'status' => 'nullable|string|max:255',
-
+        'payment_status' => 'nullable|string|max:255',
     ]);
 
     // Check if a record already exists for this tupad_id
@@ -41,7 +40,22 @@ class TupadPaperController extends Controller
         // Create a new record with status always set to 'Pending'
         $paper = TupadPaper::create(array_merge($request->all(), ['status' => 'Pending']));
     }
-    // Check if all fields in TupadPaper are filled
+
+    // Check if all required fields are filled, then set payment_status to "Paid"
+    if (
+        !empty($paper->tssd) &&
+        !empty($paper->budget) &&
+        !empty($paper->imsd_chief) &&
+        !empty($paper->ard) &&
+        !empty($paper->rd) &&
+        !empty($paper->process) &&
+        !empty($paper->budget_accounting) &&
+        !empty($paper->accounting)
+    ) {
+        $paper->update(['payment_status' => 'Paid']);
+    }
+
+    // Check if some fields are filled to update status in Tupad table
     if (
         !empty($paper->tssd) &&
         !empty($paper->budget) &&
@@ -49,7 +63,6 @@ class TupadPaperController extends Controller
         !empty($paper->ard) &&
         !empty($paper->rd)
     ) {
-        // Update status in Tupad table
         $tupad = Tupad::find($request->tupad_id);
         if ($tupad) {
             $tupad->update(['status' => 'Implemented']);
@@ -61,6 +74,7 @@ class TupadPaperController extends Controller
         'data' => $paper
     ], $paper->wasRecentlyCreated ? 201 : 200);
 }
+
 
 
     public function show($id)

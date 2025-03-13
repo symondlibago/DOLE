@@ -18,7 +18,7 @@ return new class extends Migration {
             $table->date('process')->nullable();
             $table->date('budget_accounting')->nullable();
             $table->date('accounting')->nullable();
-            $table->string('status');
+            $table->string('payment_status');
             $table->timestamps();
         });
     }

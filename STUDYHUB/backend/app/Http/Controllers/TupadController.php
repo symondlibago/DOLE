@@ -12,37 +12,48 @@ class TupadController extends Controller
 {
     $tupads = Tupad::with('history')->get();
 
-    return response()->json($tupads->map(function ($tupad) {
-        return [
-            'id' => $tupad->id, // Ensure the real primary key is sent
-            'seriesNo' => $tupad->series_no, // Keep series number separate
-            'adlNo' => $tupad->adl_no,
-            'project_title' => $tupad->project_title,
-            'pfo' => $tupad->pfo,
-            'beneficiaries' => $tupad->beneficiaries,
-            'actual' => $tupad->actual,
-            'status' => $tupad->status,
-            'budget' => $tupad->budget,
-            'voucher_amount' => $tupad->voucher_amount,
-            'commited_date' => $tupad->commited_date,
-            'commited_date_received' => $tupad->commited_date_received,
-            'commited_status' => $tupad->commited_status,
+    // Count occurrences for each PFO
+    $pfoCounts = [
+        'bukidnon' => Tupad::whereRaw('LOWER(pfo) = ?', ['bukidnon'])->count(),
+        'ldn' => Tupad::whereRaw('LOWER(pfo) = ?', ['ldn'])->count(),
+        'camiguin' => Tupad::whereRaw('LOWER(pfo) = ?', ['camiguin'])->count(),
+        'misoc' => Tupad::whereRaw('LOWER(pfo) = ?', ['misoc'])->count(),
+        'misor' => Tupad::whereRaw('LOWER(pfo) = ?', ['misor'])->count(),
+    ];
 
-            'history' => $tupad->history->map(function ($history) {
-                return [
-                    'dateReceived' => $history->date_received,
-                    'duration' => $history->duration . ' months',
-                    'location' => $history->location,
-                    'budget' => $history->budget,
-                    'voucher_amount' => $history->voucher_amount,
-                    'moi' => $history->moi,
-
-
-                ];
-            }),
-        ];
-    }));
+    return response()->json([
+        'pfo_counts' => $pfoCounts,
+        'data' => $tupads->map(function ($tupad) {
+            return [
+                'id' => $tupad->id,
+                'seriesNo' => $tupad->series_no,
+                'adlNo' => $tupad->adl_no,
+                'project_title' => $tupad->project_title,
+                'pfo' => $tupad->pfo,
+                'beneficiaries' => $tupad->beneficiaries,
+                'actual' => $tupad->actual,
+                'status' => $tupad->status,
+                'budget' => $tupad->budget,
+                'voucher_amount' => $tupad->voucher_amount,
+                'commited_date' => $tupad->commited_date,
+                'commited_date_received' => $tupad->commited_date_received,
+                'commited_status' => $tupad->commited_status,
+                'history' => $tupad->history->map(function ($history) {
+                    return [
+                        'dateReceived' => $history->date_received,
+                        'duration' => $history->duration . ' months',
+                        'location' => $history->location,
+                        'budget' => $history->budget,
+                        'voucher_amount' => $history->voucher_amount,
+                        'moi' => $history->moi,
+                    ];
+                }),
+            ];
+        })
+    ]);
 }
+
+
 
 
 
@@ -163,6 +174,27 @@ public function update(Request $request, $id)
         'data' => $tupad,
     ]);
 }
+
+public function getTupadDetails($id)
+{
+    $tupad = Tupad::leftJoin('tupad_papers', 'tupads.id', '=', 'tupad_papers.tupad_id')
+        ->where('tupads.id', $id)
+        ->select(
+            'tupads.id',
+            'tupads.status',
+            'tupads.commited_status',
+            'tupad_papers.payment_status'
+        )
+        ->first();
+
+    if (!$tupad) {
+        return response()->json(['message' => 'TUPAD record not found'], 404);
+    }
+
+    return response()->json($tupad);
+}
+
+
 
 
 }
