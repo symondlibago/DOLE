@@ -5,6 +5,7 @@ import { FaPeopleRobbery } from "react-icons/fa6";
 import { BsFillPeopleFill } from "react-icons/bs";
 import { TbHeartRateMonitor } from "react-icons/tb";
 import { MdFormatListNumbered } from "react-icons/md";
+import { BiArchiveIn } from "react-icons/bi";
 import "../App.css";
 
 const Sidebar = () => {
@@ -39,9 +40,15 @@ const Sidebar = () => {
             </Link>
           </li>
           <li>
+            <Link to="/implemented">
+              <span className="icon"><BiArchiveIn /></span>
+              <span className="title">Implemented</span>
+            </Link>
+          </li>
+          <li>
             <Link to="/members">
               <span className="icon"><BsFillPeopleFill /></span>
-              <span className="title">Members</span>
+              <span className="title">Mapping</span>
             </Link>
           </li>
         </ul>

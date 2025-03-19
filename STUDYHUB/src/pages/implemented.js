@@ -37,30 +37,10 @@ import API_URL from './api';
 import { IoClose } from "react-icons/io5"; 
 import { FaRegEdit } from "react-icons/fa";
 import { PiInfoLight } from "react-icons/pi";
-const Tupad = () => {
+const Implemented = () => {
   const [rows, setRows] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [statusOpen, setStatusOpen] = useState(false);
-  const [newEntry, setNewEntry] = useState({
-    pfo: '',
-    seriesNo: '',
-    adlNo: '',
-    beneficiaries: '',
-    actual: '',
-    status: 'Pending',
-    dateReceived: '',
-    duration: '',
-    location: '',
-    budget: '',
-    voucher_amount: '',
-    commited_date: '',
-    commited_date_received: '',
-    commited_status: 'Pending',
-    moi: '',
-    project_title: '',
-    
-  });
-
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10); 
   const [searchQuery, setSearchQuery] = useState("");
@@ -89,54 +69,6 @@ const Tupad = () => {
     return statuses.some(status => requiredFields.includes(status.name) && !status.date);
   };
   
-
-
-  const formatDate = (date) => {
-    return date && date !== "mm/dd/yyyy" ? date : null;
-  };
-  
-  const handleSave = async () => {
-    try {
-        const payload = {
-            tupad_id: selectedTupadsId,
-            tssd: formatDate(statuses.find(s => s.name === "TSSD")?.date),
-            budget: formatDate(statuses.find(s => s.name === "Budget")?.date),
-            imsd_chief: formatDate(statuses.find(s => s.name === "IMSD Chief for Appraisal Signature")?.date),
-            ard: formatDate(statuses.find(s => s.name === "ARD for Appraisal Signature")?.date),
-            rd: formatDate(statuses.find(s => s.name === "RD Approval and WP Signature")?.date),
-            process: formatDate(statuses.find(s => s.name === "Process to Budget")?.date),
-            budget_accounting: formatDate(statuses.find(s => s.name === "Budget to Accounting")?.date),
-            accounting: formatDate(statuses.find(s => s.name === "Accounting to Cashier")?.date),
-            payment_status: "Pending",
-        };
-
-        console.log("Sending Payload:", payload);
-
-        const response = await axios.post("http://localhost:8000/api/tupad_papers", payload);
-
-        console.log(response.data.message, response.data.data);
-
-        Swal.fire({
-            icon: "success",
-            title: "Saved Successfully!",
-            text: "Your data has been saved.",
-            timer: 2000,
-            showConfirmButton: false,
-        });
-
-        setStatusOpen(false);
-        fetchTupadData(); // Refresh data after saving
-    } catch (error) {
-        console.error("Error saving data:", error.response?.data || error.message);
-
-        Swal.fire({
-            icon: "error",
-            title: "Save Failed",
-            text: error.response?.data?.message || "An error occurred while saving.",
-        });
-    }
-};
-
   
 const filteredRows = rows.filter(row =>
   (row.seriesNo && row.seriesNo.toLowerCase().includes(searchQuery.toLowerCase())) ||
@@ -186,6 +118,7 @@ const filteredRows = rows.filter(row =>
     }, 500); 
   };
 
+  const paginatedRows = filteredRows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
   
   
 
@@ -223,62 +156,6 @@ const filteredRows = rows.filter(row =>
     a.click();
     window.URL.revokeObjectURL(url);
   };
-  
-
-  
-  const handleInputChange = async (field, value) => {
-    setNewEntry((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
-  
-    if (field === "pfo" && value) {
-      try {
-        const response = await axios.get(`${API_URL}/api/tupads/latest-series/${value}`);
-        const latestSeriesNo = response.data.latestSeriesNo || 0; 
-        const nextSeriesNo = String(latestSeriesNo + 1).padStart(3, "0"); 
-  
-        setNewEntry((prev) => ({
-          ...prev,
-          seriesNo: nextSeriesNo, 
-        }));
-      } catch (error) {
-        console.error("Error fetching latest series number:", error);
-      }
-    }
-  };
-
-  const resetForm = () => {
-    setNewEntry({
-      pfo: '',
-      seriesNo: '',
-      adlNo: [''],
-      target: '',
-      initial: '',
-      status: 'Pending',
-      dateReceived: '',
-      duration: '',
-      location: '',
-      budget: '',
-      voucher_amount: '',
-      commited_date: '',
-      commited_date_received: '',
-      commited_status: 'Pending',
-      moi: '',
-      project_title: '',
-    });
-  
-    setAdlNumbers(['']); 
-    setSelectedEntry(null);
-  };
-  
-  
-  const [adlNumbers, setAdlNumbers] = useState(['']);
-  const [selectedEntry, setSelectedEntry] = useState(null);
-
-  const paginatedRows = filteredRows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
-  const PFO_OPTIONS = ['CDO', 'BUKIDNON', 'TSSD', 'MISOR', 'MISOC', 'LDN', 'CAMIGUIN'];
-  const MOI = ['Co Partners', 'Direct Administration'];
 
   const fetchTupadData = async () => {
     try {
@@ -314,12 +191,10 @@ const filteredRows = rows.filter(row =>
         }))
         .filter(
           (row) =>
-            !(
-              row.status === "Implemented" &&
-              (row.commited_status === "Late Received" ||
-                row.commited_status === "Received") &&
-              row.payment_status === "Paid"
-            )
+            row.status === "Implemented" &&
+            (row.commited_status === "Late Received" ||
+              row.commited_status === "Received") &&
+            row.payment_status === "Paid"
         );
   
       setRows(formattedData);
@@ -333,133 +208,7 @@ const filteredRows = rows.filter(row =>
   }, []);
   
 
-  const handleEditEntry = (entry) => {
-    console.log('Selected Entry:', entry); 
   
-    setSelectedEntry(entry); 
-    
-    const cleanedAdlNumbers = entry.adlNo.map(adl => adl.split('-').pop());
-
-    setNewEntry({
-      pfo: entry.pfo || '',
-      seriesNo: entry.seriesNo ? entry.seriesNo.split('-').pop() : '',
-      adlNo: cleanedAdlNumbers, 
-      beneficiaries: entry.beneficiaries || '',
-      actual: entry.actual || '',
-      status: entry.status || 'Pending',
-      dateReceived: entry.history?.[0]?.dateReceived || '',
-      duration: entry.history?.[0]?.duration?.replace(' months', '') || '',
-      location: entry.history?.[0]?.location || '',
-      budget: entry.budget || '',
-      voucher_amount: entry.history?.[0]?.voucher_amount || '',
-      commited_date: entry.commited_date || '',
-      commited_date_received: entry.commited_date_received || '',
-      commited_status: entry.commited_status || 'Pending',
-      moi: entry.history?.[0]?.moi || '',
-      project_title: entry.project_title || '',
-    });
-
-    setAdlNumbers(cleanedAdlNumbers);
-    setModalOpen(true);
-};
-
-  
-  
-
-const handleAddNewEntry = () => {
-  const formattedSeriesNo = newEntry.pfo
-    ? `TUPAD${newEntry.pfo}-${new Date().getFullYear()}-${newEntry.seriesNo}`
-    : '';
-
-  const formattedAdlNos = adlNumbers.map(adl => 
-    adl.startsWith(`ADL-${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-`) 
-      ? adl 
-      : `ADL-${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${adl}`
-  );
-
-  const payload = {
-    series_no: formattedSeriesNo,
-    adl_no: formattedAdlNos,
-    pfo: newEntry.pfo,
-    beneficiaries: parseInt(newEntry.beneficiaries, 10),
-    actual: parseFloat(newEntry.actual),
-    status: newEntry.status,
-    date_received: newEntry.dateReceived,
-    duration: parseInt(newEntry.duration, 10),
-    location: newEntry.location,
-    budget: parseFloat(newEntry.budget),
-    voucher_amount: parseFloat(newEntry.voucher_amount),
-    commited_date: newEntry.commited_date,
-    commited_date_received: newEntry.commited_date_received,
-    commited_status: newEntry.commited_status,
-    moi: newEntry.moi,
-    project_title: newEntry.project_title
-  };
-
-  if (selectedEntry) {
-    axios.put(`http://localhost:8000/api/tupads/${selectedEntry.id}`, payload)
-      .then((response) => {
-        console.log('Entry updated successfully:', response.data);
-
-        setRows((prevRows) =>
-          prevRows.map((row) =>
-            row.id === selectedEntry.id
-              ? { ...row, ...response.data.data }
-              : row
-          )
-        );
-
-        Swal.fire({
-          icon: "success",
-          title: "Updated Successfully!",
-          text: "The entry has been updated.",
-          timer: 2000,
-          showConfirmButton: false
-        });
-
-        setSelectedEntry(null);
-        fetchTupadData();
-      })
-      .catch((error) => {
-        console.error('Error updating entry:', error.response?.data || error.message);
-
-        Swal.fire({
-          icon: "error",
-          title: "Update Failed",
-          text: error.response?.data?.message || "An error occurred while updating.",
-        });
-      });
-  } else {
-    axios.post(`http://localhost:8000/api/tupads`, payload)
-      .then((response) => {
-        console.log('Entry created successfully:', response.data);
-
-        setRows((prevRows) => [...prevRows, response.data.data]);
-        fetchTupadData();
-
-        Swal.fire({
-          icon: "success",
-          title: "Added Successfully!",
-          text: "The new entry has been created.",
-          timer: 2000,
-          showConfirmButton: false
-        });
-
-      })
-      .catch((error) => {
-        console.error('Error creating entry:', error.response?.data || error.message);
-
-        Swal.fire({
-          icon: "error",
-          title: "Creation Failed",
-          text: error.response?.data?.message || "An error occurred while adding the entry.",
-        });
-      });
-  }
-  
-  setModalOpen(false);
-};
-
 const getStatusColor = (status) => {
   switch (status) {
     case "Implemented":
@@ -580,22 +329,6 @@ const handleStatusClick = async (row) => {
             <PiInfoLight size={24} />
           </IconButton>
           </TableCell>
-          <TableCell align="center">
-          <Button
-            variant="text" // Removes background color
-            size="small"
-            onClick={() => handleEditEntry(row)}
-            sx={{
-              minWidth: "auto",
-              p: 1,
-              backgroundColor: "transparent", // Ensures background is fully transparent
-              "&:hover": { backgroundColor: "rgba(0, 0, 0, 0.05)" }, // Light hover effect
-            }}
-          >
-            <FaRegEdit size={20} color="black" />
-          </Button>
-      </TableCell>
-
         </TableRow>
 
         <TableRow>
@@ -688,239 +421,8 @@ const handleStatusClick = async (row) => {
     );
   }
 
-  Row.propTypes = {
-    row: PropTypes.shape({
-      seriesNo: PropTypes.string.isRequired,
-      adlNo: PropTypes.string.isRequired,
-      pfo: PropTypes.string.isRequired,
-      beneficiaries: PropTypes.number.isRequired,
-      actual: PropTypes.number.isRequired,
-      status: PropTypes.string.isRequired,
-      history: PropTypes.arrayOf(
-        PropTypes.shape({
-          dateReceived: PropTypes.string.isRequired,
-          duration: PropTypes.string.isRequired,
-          location: PropTypes.string.isRequired,
-          budget: PropTypes.number.isRequired,
-        })
-      ).isRequired,
-    }).isRequired,
-  };
-
   return (
     <div className="tupad-container">
-
-    {/* INSERTING AND UPDATING MODAL */}
-    <Modal open={modalOpen} onClose={() => setModalOpen(false)}>
-    <Box
-  sx={{
-    position: "absolute",
-    top: "50%",
-    left: "50%",
-    transform: "translate(-50%, -50%)",
-    width: "80%",
-    bgcolor: "background.paper",
-    boxShadow: 24,
-    p: 4,
-    borderRadius: 2,
-  }}
->
-  {/* Header with Title and Close Button */}
-  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
-    <Typography variant="h6" gutterBottom>
-      {selectedEntry ? "Edit WP" : "Insert New WP"}
-    </Typography>
-    <IconButton 
-      onClick={() => setModalOpen(false)} 
-      sx={{ color: "red" }} // Set button color to red
-    >
-      <IoClose size={24} />
-    </IconButton>
-
-  </Box>
-
-
-
-    <Box
-      sx={{
-        display: "grid",
-        gridTemplateColumns: "1fr 1fr",
-        gap: 2,
-        alignItems: "center",
-      }}
-    >
-      <FormControl fullWidth>
-        <InputLabel>PFO</InputLabel>
-        <Select
-          value={newEntry.pfo}
-          onChange={(e) => handleInputChange("pfo", e.target.value)}
-        >
-          {PFO_OPTIONS.map((option) => (
-            <MenuItem key={option} value={option}>
-              {option}
-            </MenuItem>
-          ))}
-        </Select>
-      </FormControl>
-
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-        <TextField
-          fullWidth
-          label="Series Number"
-          value={
-            newEntry.pfo
-              ? `TUPAD${newEntry.pfo}-${new Date().getFullYear()}-${newEntry.seriesNo}`
-              : ""
-          }
-          margin="normal"
-          InputProps={{ readOnly: true }}
-        />
-      </Box>
-
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-  {adlNumbers.map((adl, index) => (
-    <Box
-      key={index}
-      sx={{
-        display: "flex",
-        alignItems: "center",
-        gap: 1,
-      }}
-    >
-      <TextField
-        label={`ADL Number ${index + 1}`}
-        value={adlNumbers[index]}
-        onChange={(e) => {
-          const updatedAdlNumbers = [...adlNumbers];
-          updatedAdlNumbers[index] = e.target.value;
-          setAdlNumbers(updatedAdlNumbers);
-        }}
-      />
-      {adlNumbers.length > 1 && (
-        <IconButton
-          onClick={() => {
-            const updatedAdlNumbers = adlNumbers.filter((_, i) => i !== index);
-            setAdlNumbers(updatedAdlNumbers);
-          }}
-        >
-          <IoIosTrash color="red" />
-        </IconButton>
-      )}
-    </Box>
-  ))}
-  <IconButton onClick={() => setAdlNumbers([...adlNumbers, ""])}>
-    <IoIosAddCircleOutline color="green" />
-  </IconButton>
-</Box>
-
-
-      <TextField
-        fullWidth
-        label="Project Title"
-        value={newEntry.project_title}
-        onChange={(e) => handleInputChange("project_title", e.target.value)}
-      />
-
-      <TextField
-        fullWidth
-        label="Number of Target Beneficiaries"
-        value={newEntry.beneficiaries}
-        onChange={(e) => handleInputChange("beneficiaries", e.target.value)}
-      />
-      <TextField
-        fullWidth
-        label="Actual"
-        value={newEntry.actual}
-        onChange={(e) => handleInputChange("actual", e.target.value)}
-      />
-      <TextField
-        fullWidth
-        label="Date Received"
-        value={newEntry.dateReceived}
-        onChange={(e) => handleInputChange("dateReceived", e.target.value)}
-        type="date"
-        InputLabelProps={{
-          shrink: true,
-        }}
-      />
-      <TextField
-        fullWidth
-        label="Committed Date for ADL Budget"
-        value={newEntry.commited_date}
-        onChange={(e) => handleInputChange("commited_date", e.target.value)}
-        type="date"
-        InputLabelProps={{
-          shrink: true,
-        }}
-      />
-      <TextField
-        fullWidth
-        label="Committed Date Recieved"
-        value={newEntry.commited_date_received}
-        onChange={(e) => handleInputChange("commited_date_received", e.target.value)}
-        type="date"
-        InputLabelProps={{
-          shrink: true,
-        }}
-      />
-      <TextField
-        fullWidth
-        label="Duration (in months)"
-        value={newEntry.duration}
-        onChange={(e) => handleInputChange("duration", e.target.value)}
-        type="number"
-      />
-      <TextField
-        fullWidth
-        label="Location"
-        value={newEntry.location}
-        onChange={(e) => handleInputChange("location", e.target.value)}
-      />
-
-        <FormControl fullWidth>
-        <InputLabel>Mode of Implementation</InputLabel>
-        <Select
-          value={newEntry.moi}
-          onChange={(e) => handleInputChange("moi", e.target.value)}
-        >
-          {MOI.map((option) => (
-            <MenuItem key={option} value={option}>
-              {option}
-            </MenuItem>
-          ))}
-          </Select>
-         </FormControl>  
-
-      <TextField
-        fullWidth
-        label="Budget (₱)"
-        value={newEntry.budget}
-        onChange={(e) => handleInputChange("budget", e.target.value)}
-        type="number"
-      />
-      <TextField
-        fullWidth
-        label="Voucher Amount (₱)"
-        value={newEntry.voucher_amount}
-        onChange={(e) => handleInputChange("voucher_amount", e.target.value)}
-        type="number"
-      />
-    </Box>
-    <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 3 }}>
-  <Button
-    variant="contained"
-    sx={{ ml: "auto" }}
-    onClick={handleAddNewEntry}
-  >
-    Save
-  </Button>
-</Box>
-
-  </Box>
-</Modal>
-
-
-
       {/* STATUS MODAL */}
 
       <Modal open={statusOpen} onClose={() => setStatusOpen(false)}>
@@ -1021,18 +523,13 @@ const handleStatusClick = async (row) => {
             )}
           />
         </Box>
-
-        {/* Save Button - Aligned to the Right */}
-        <Button variant="contained" color="primary" onClick={handleSave}>
-          Save
-        </Button>
       </Box>
     )}
   </Box>
 </Modal>
 
 
-    <h1>TUPAD</h1>
+    <h1>IMPLEMENTED WORK PROGRAM</h1>
 
     <Box 
       sx={{ 
@@ -1042,24 +539,6 @@ const handleStatusClick = async (row) => {
         width: "98%"
       }}
     >
-      <Button
-  variant="contained"
-  startIcon={<IoIosAddCircleOutline />}
-  onClick={() => {
-    resetForm();  // Clear the form first
-    setModalOpen(true);  // Then open the modal
-  }}
-  sx={{ 
-    width: "250px",
-    height: "50px",  
-    fontSize: "1rem",  
-    backgroundColor: "#003366", 
-    color: "white", 
-    "&:hover": { backgroundColor: "#002244" } 
-  }}
->
-  Insert New WP
-</Button>
 
 
       <TextField
@@ -1109,7 +588,6 @@ const handleStatusClick = async (row) => {
             <TableCell align="center" sx={{ fontWeight: "bold", color: "white" }}>Beneficiaries</TableCell>
             <TableCell align="center" sx={{ fontWeight: "bold", color: "white" }}>Actual</TableCell>
             <TableCell align="center" sx={{ fontWeight: "bold", color: "white" }}>Status</TableCell>
-            <TableCell align="center" sx={{ fontWeight: "bold", color: "white" }}>Action</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -1166,4 +644,4 @@ const handleStatusClick = async (row) => {
 
 };
 
-export default Tupad;
+export default Implemented;

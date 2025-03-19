@@ -11,6 +11,7 @@ class TupadController extends Controller
     public function index()
 {
     $tupads = Tupad::with('history')->get();
+    
 
     // Count occurrences for each PFO
     $pfoCounts = [
@@ -108,18 +109,21 @@ public function storeOrUpdate(Request $request, $id = null)
     }
 }
 
+public function getAll()
+{
+    $tupadRecords = Tupad::leftJoin('tupad_papers', 'tupads.id', '=', 'tupad_papers.tupad_id')
+        ->select(
+            'tupads.*', // Select all columns from tupads
+            'tupad_papers.payment_status' // Include payment_status
+        )
+        ->get();
+
+    return response()->json([
+        'data' => $tupadRecords,
+    ]);
+}
 
 
-    
-
-    public function getAll()
-    {
-        $tupadRecords = Tupad::all();
-
-        return response()->json([
-            'data' => $tupadRecords,
-        ]);
-    }
 
     public function getLatestSeriesNo($pfo)
 {

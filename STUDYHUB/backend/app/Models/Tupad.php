@@ -36,5 +36,10 @@ class Tupad extends Model
     {
         return $this->hasMany(TupadsPaper::class, 'tupad_id');
     }
+    public function paper()
+{
+    return $this->hasOne(TupadPaper::class, 'tupad_id');
+}
+
     
 }

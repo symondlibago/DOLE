@@ -107,9 +107,6 @@ public function showByTupadId($tupad_id)
 
 
     
-
-
-
     // Update a Tupad Paper
     public function update(Request $request, $id)
     {

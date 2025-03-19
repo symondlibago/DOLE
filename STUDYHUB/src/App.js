@@ -5,6 +5,7 @@ import Header from "./components/header";
 import Tupad from "./pages/tupad";
 import GIP from "./pages/gip";
 import ADL from "./pages/adl";
+import Implemented from "./pages/implemented";
 import Members from "./pages/members";
 
 const App = () => {
@@ -19,6 +20,7 @@ const App = () => {
             <Route path="/" element={<Navigate to="/tupad" replace />} />
             <Route path="/tupad" element={<Tupad />} />
             <Route path="/gip" element={<GIP />} />
+            <Route path="/implemented" element={<Implemented />} />
             <Route path="/members" element={<Members />} />
             <Route path="/adl" element={<ADL />} />
           </Routes>
