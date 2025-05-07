@@ -540,6 +540,23 @@ const handleStatusClick = async (row) => {
       });
     };
 
+    const getCommitedStatus = (commitedDate, commitedDateReceived) => {
+      const current = new Date();
+      const committed = new Date(commitedDate);
+      const received = commitedDateReceived ? new Date(commitedDateReceived) : null;
+    
+      if (current > committed && !received) {
+        return 'Unpaid';
+      } else if (received && received > committed) {
+        return 'Late Received';
+      } else if (received && received <= committed) {
+        return 'Received';
+      } else {
+        return 'Pending';
+      }
+    };
+    
+
 
     return (
       <>    
@@ -547,7 +564,7 @@ const handleStatusClick = async (row) => {
        <TableCell>
           <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: "50px" }}>
             <span style={{ width: "24px", textAlign: "center" }}>
-              {row.commited_status.toLowerCase() === "unpaid" && (
+            {getCommitedStatus(row.commited_date, row.commited_date_received).toLowerCase() === "unpaid" && (
                 <BsExclamation
                   style={{
                     color: "red",

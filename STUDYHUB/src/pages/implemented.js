@@ -547,12 +547,11 @@ const handleStatusClick = async (row) => {
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)}
         sx={{ 
-          width: "350px",  
+          width: "300px",  
           height: "50px",  
           backgroundColor: "white", 
           borderRadius: "5px",
-          marginLeft: "20px",
-          
+          marginRight: "10px",       
           "& .MuiInputBase-input": {
             fontSize: "0.85rem" 
           }
